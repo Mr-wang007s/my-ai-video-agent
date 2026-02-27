@@ -36,16 +36,21 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-def init_db():
-    """初始化数据库表结构。"""
+def init_db(force: bool = False):
+    """初始化数据库表结构。force=True 时先删除所有表再重建。"""
     sql_path = os.path.join(os.path.dirname(__file__), "init_db.sql")
     with open(sql_path, "r", encoding="utf-8") as f:
         sql = f.read()
     conn = get_connection()
+    if force:
+        tables = ["generations", "assets", "characters", "storyboards", "scripts", "projects"]
+        for table in tables:
+            conn.execute(f"DROP TABLE IF EXISTS {table}")
+        logger.info("All tables dropped (force rebuild)")
     conn.executescript(sql)
     conn.close()
     logger.info("Database initialized successfully")
-    return {"status": "success", "message": "Database initialized"}
+    return {"status": "success", "message": f"Database initialized{' (force rebuild)' if force else ''}"}
 
 
 def create_project(data: dict) -> dict:
@@ -61,7 +66,7 @@ def create_project(data: dict) -> dict:
 
     # 创建项目工作目录
     project_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "projects", project_id)
-    for sub in ["images/characters", "images/shots", "videos", "audio"]:
+    for sub in ["images/characters", "images/shots", "videos", "audio", "character_list", "final"]:
         os.makedirs(os.path.join(project_dir, sub), exist_ok=True)
 
     logger.info(f"Project created: {project_id}")
@@ -141,9 +146,9 @@ def save_asset(data: dict) -> dict:
     asset_id = data.get("id", str(uuid.uuid4())[:8])
     conn = get_connection()
     conn.execute(
-        "INSERT OR REPLACE INTO assets (id, project_id, type, file_path, metadata) VALUES (?, ?, ?, ?, ?)",
-        (asset_id, data["project_id"], data["type"], data["file_path"],
-         json.dumps(data.get("metadata", {}), ensure_ascii=False))
+        "INSERT OR REPLACE INTO assets (id, project_id, type, name, file_path, metadata) VALUES (?, ?, ?, ?, ?, ?)",
+        (asset_id, data["project_id"], data["type"], data.get("name", ""),
+         data["file_path"], json.dumps(data.get("metadata", {}), ensure_ascii=False))
     )
     conn.commit()
     conn.close()
@@ -210,7 +215,7 @@ def get_project_summary(project_id: str) -> dict:
 
 
 ACTIONS = {
-    "init_db": lambda d: init_db(),
+    "init_db": lambda d: init_db(force=d.get("force", False)),
     "create_project": create_project,
     "list_projects": lambda d: list_projects(),
     "get_project": lambda d: get_project(d["project_id"]),

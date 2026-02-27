@@ -25,9 +25,19 @@
     },
     "status": {
       "type": "string",
-      "enum": ["draft", "confirmed", "scripted", "designed", "generating", "generated", "composing", "completed"],
+      "enum": [
+        "draft",
+        "imported",
+        "characters_extracted",
+        "characters_designing",
+        "script_broken",
+        "generating",
+        "generated",
+        "composing",
+        "completed"
+      ],
       "default": "draft",
-      "description": "项目当前阶段"
+      "description": "项目当前阶段：draft（初始）→ imported（剧本已导入）→ characters_extracted（角色已提取）→ characters_designing（角色设计中）→ script_broken（分镜已拆解）→ generating（视频生成中）→ generated（视频已生成）→ composing（合成中）→ completed（完成）"
     },
     "config": {
       "type": "object",

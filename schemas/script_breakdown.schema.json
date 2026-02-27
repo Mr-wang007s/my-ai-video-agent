@@ -1,0 +1,265 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ScriptBreakdown",
+  "description": "三层嵌套分镜数据结构（对应 MovieAgent 的 Sub-Script → Scene → Shot 拆解产物）",
+  "type": "object",
+  "required": ["project_id", "Sub-Script"],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "description": "所属项目 ID"
+    },
+    "Relationships": {
+      "type": "object",
+      "description": "角色关系映射（从 ScriptBreak CoT 推理得出）",
+      "additionalProperties": { "type": "string" }
+    },
+    "Internal Chain-of-Thought": {
+      "type": "object",
+      "description": "编剧层 CoT 推理过程（5步：叙事结构→角色提取→时间分段→验证→理由）",
+      "properties": {
+        "Step 1: Narrative Structure Analysis": { "type": "string" },
+        "Step 2: Character Extraction": { "type": "string" },
+        "Step 3: Timeline Segmentation": { "type": "string" },
+        "Step 4: Validation": { "type": "string" },
+        "Step 5: Division Rationale": { "type": "string" }
+      }
+    },
+    "Sub-Script": {
+      "type": "object",
+      "description": "Sub-Script 层（≤20个章节/幕），键为 'Sub-Script N'",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["Plot", "Involving Characters", "Timeline"],
+        "properties": {
+          "Plot": {
+            "type": "string",
+            "description": "详细剧情描述（≥50词，保留原文叙事）",
+            "minLength": 50
+          },
+          "Involving Characters": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "涉及的角色名列表"
+          },
+          "Timeline": {
+            "type": "string",
+            "enum": ["Beginning", "Middle", "End", "Climax", "Resolution"],
+            "description": "叙事时间线位置"
+          },
+          "Reason for Division": {
+            "type": "string",
+            "description": "分段理由"
+          },
+          "Scene Annotation": {
+            "type": "object",
+            "description": "场景规划层（Step 4b 产物）",
+            "properties": {
+              "Internal Chain-of-Thought": {
+                "type": "object",
+                "description": "场景规划 CoT 推理过程"
+              },
+              "Scene": {
+                "type": "object",
+                "description": "场景列表，键为 'Scene N'",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["Involving Characters", "Plot", "Scene Description"],
+                  "properties": {
+                    "Involving Characters": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "description": "出场角色名列表"
+                    },
+                    "Plot": {
+                      "type": "string",
+                      "description": "场景剧情描述"
+                    },
+                    "Scene Description": {
+                      "type": "string",
+                      "description": "场景环境描述（视觉细节）"
+                    },
+                    "Emotional Tone": {
+                      "type": "string",
+                      "description": "情绪基调"
+                    },
+                    "Visual Style": {
+                      "type": "string",
+                      "description": "视觉风格描述"
+                    },
+                    "Key Props": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "description": "关键道具列表"
+                    },
+                    "Music and Sound Effects": {
+                      "type": "string",
+                      "description": "音乐和音效描述"
+                    },
+                    "Cinematography Notes": {
+                      "type": "string",
+                      "description": "摄影/运镜注释"
+                    },
+                    "Shot Annotation": {
+                      "type": "object",
+                      "description": "镜头创建层（Step 4c 产物）",
+                      "properties": {
+                        "Internal Chain-of-Thought": {
+                          "type": "object",
+                          "description": "镜头创建 CoT 推理过程"
+                        },
+                        "Shot": {
+                          "type": "object",
+                          "description": "镜头列表，键为 'Shot N'",
+                          "additionalProperties": {
+                            "type": "object",
+                            "required": ["Involving Characters", "Plot/Visual Description", "Coarse Plot", "Shot Type", "Camera Movement"],
+                            "properties": {
+                              "Involving Characters": {
+                                "type": "object",
+                                "description": "出场角色及其归一化边界框 {name: [x1, y1, x2, y2]}",
+                                "additionalProperties": {
+                                  "type": "array",
+                                  "items": { "type": "number", "minimum": 0, "maximum": 1 },
+                                  "minItems": 4,
+                                  "maxItems": 4
+                                }
+                              },
+                              "Plot/Visual Description": {
+                                "type": "string",
+                                "description": "详细视觉描述（≥30词，含角色名+动作+环境细节）"
+                              },
+                              "Coarse Plot": {
+                                "type": "string",
+                                "description": "无人名的简洁描述（≤20词，用于文生图 Prompt）"
+                              },
+                              "image_prompt": {
+                                "type": "string",
+                                "description": "英文文生图 Prompt（无角色名，纯场景描述），给 DALL-E 3"
+                              },
+                              "video_prompt": {
+                                "type": "string",
+                                "description": "图生视频 Prompt（含 @引用 + 角色参考），给 Seedance 2.0"
+                              },
+                              "audio_prompt": {
+                                "type": "string",
+                                "description": "中文音效 Prompt（音效+配音+BGM），给 Seedance 2.0 音视频联合生成"
+                              },
+                              "Emotional Enhancement": {
+                                "type": "string",
+                                "description": "情绪增强描述"
+                              },
+                              "Shot Type": {
+                                "type": "string",
+                                "enum": ["Wide shot", "Medium shot", "Close-up", "Extreme close-up", "Over-shoulder shot", "POV shot", "Bird-eye view", "Low-angle shot", "Dutch angle"],
+                                "description": "镜头类型"
+                              },
+                              "Camera Movement": {
+                                "type": "string",
+                                "description": "运镜方式（如 Static, Pan left, Slow dolly-in, Tracking shot 等）"
+                              },
+                              "Duration": {
+                                "type": "number",
+                                "enum": [4, 5, 10, 15],
+                                "default": 5,
+                                "description": "镜头时长（秒），Seedance 2.0 支持 4/5/10/15"
+                              },
+                              "Subtitles": {
+                                "type": "object",
+                                "description": "字幕/对白 {角色名: 台词}",
+                                "additionalProperties": { "type": "string" }
+                              },
+                              "seedance_mode": {
+                                "type": "string",
+                                "enum": ["i2v", "multimodal", "t2v"],
+                                "default": "i2v",
+                                "description": "Seedance 生成模式"
+                              },
+                              "ratio": {
+                                "type": "string",
+                                "enum": ["16:9", "9:16", "1:1"],
+                                "default": "16:9",
+                                "description": "视频宽高比"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "project_id": "proj001",
+      "Relationships": {
+        "Anna - Elsa": "Sisters",
+        "Kristoff - Anna": "Love interest"
+      },
+      "Internal Chain-of-Thought": {
+        "Step 1: Narrative Structure Analysis": "The story follows a classic three-act structure...",
+        "Step 2: Character Extraction": "Main characters: Anna, Elsa, Kristoff...",
+        "Step 3: Timeline Segmentation": "Dividing into 3 sub-scripts based on turning points...",
+        "Step 4: Validation": "Each sub-script has sufficient content (>=50 words)...",
+        "Step 5: Division Rationale": "Sub-Script 1 covers the call to adventure..."
+      },
+      "Sub-Script": {
+        "Sub-Script 1": {
+          "Plot": "Anna and Elsa discover a mysterious voice calling from the enchanted forest. They gather their friends Kristoff and Olaf to investigate the source of the ethereal singing that only Elsa can hear...",
+          "Involving Characters": ["Anna", "Elsa", "Kristoff", "Olaf"],
+          "Timeline": "Beginning",
+          "Reason for Division": "Establishes the inciting incident and character motivations",
+          "Scene Annotation": {
+            "Internal Chain-of-Thought": {
+              "Step 1": "Analyzing the setting requirements..."
+            },
+            "Scene": {
+              "Scene 1": {
+                "Involving Characters": ["Elsa", "Anna"],
+                "Plot": "Elsa hears the mysterious voice for the first time while in the castle",
+                "Scene Description": "Grand castle interior with icy blue lighting filtering through frost-covered windows",
+                "Emotional Tone": "Mystery and unease",
+                "Visual Style": "Cool blue palette with warm firelight contrast",
+                "Key Props": ["ice crystals", "frost patterns on windows"],
+                "Music and Sound Effects": "Ethereal distant singing, wind chimes",
+                "Cinematography Notes": "Start with wide establishing shot, slowly push in to Elsa's face",
+                "Shot Annotation": {
+                  "Internal Chain-of-Thought": {
+                    "Step 1": "Breaking scene into cinematic shots..."
+                  },
+                  "Shot": {
+                    "Shot 1": {
+                      "Involving Characters": {
+                        "Elsa": [0.3, 0.1, 0.7, 1.0]
+                      },
+                      "Plot/Visual Description": "Elsa stands alone in the grand hall, her eyes widening as she hears a faint melodic voice echoing through the frost-covered chamber, ice crystals slowly forming around her fingertips",
+                      "Coarse Plot": "A woman stands in an icy grand hall, eyes wide with wonder, frost crystals forming",
+                      "image_prompt": "manga style, grand castle interior, cool blue lighting, a woman in sparkling blue dress standing alone, frost-covered windows, ice crystals forming in air, ethereal atmosphere, high detail",
+                      "video_prompt": "@Image1 作为Elsa外观参考。@Image2 作为首帧，角色微微抬头，眼神中流露出惊异，手指周围缓缓浮现冰晶",
+                      "audio_prompt": "空旷的城堡大厅中，远处传来空灵的歌声，冰晶凝结的清脆声，微弱的风声回响",
+                      "Emotional Enhancement": "Sense of wonder mixed with growing unease",
+                      "Shot Type": "Medium shot",
+                      "Camera Movement": "Slow dolly-in",
+                      "Duration": 5,
+                      "Subtitles": {
+                        "Elsa": "That voice... I can hear it again."
+                      },
+                      "seedance_mode": "multimodal",
+                      "ratio": "16:9"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

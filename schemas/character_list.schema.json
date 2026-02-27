@@ -1,0 +1,159 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CharacterList",
+  "description": "角色资产库数据结构（对应 MovieAgent 的 character_list/ 目录，以及 characters.json 清单文件）",
+  "definitions": {
+    "CharacterEntry": {
+      "type": "object",
+      "description": "characters.json 中的单个角色条目",
+      "required": ["name", "description", "appearance_description", "design_status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "角色名称（必须与 character_list/ 子目录名一致）"
+        },
+        "description": {
+          "type": "string",
+          "description": "角色简介（性格、背景、在故事中的作用）"
+        },
+        "appearance_description": {
+          "type": "string",
+          "description": "外观描述（发型、服装、体型、显著特征等，中文）"
+        },
+        "tok_description": {
+          "type": "string",
+          "description": "<TOK> 格式的英文外观描述，用于图像生成。设计完成后填入。如：'<TOK> has long blonde hair in a braid, wearing a sparkling blue dress'"
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "character": { "type": "string", "description": "关联角色名" },
+              "relation": { "type": "string", "description": "关系描述" }
+            }
+          },
+          "description": "与其他角色的关系列表"
+        },
+        "design_status": {
+          "type": "string",
+          "enum": ["extracted", "designing", "designed", "failed"],
+          "description": "设计状态：extracted（已提取未设计）/ designing（设计中）/ designed（设计完成）/ failed（设计失败）"
+        },
+        "asset_dir": {
+          "type": "string",
+          "description": "角色资产目录相对路径（如 character_list/Elsa/），设计完成后填入"
+        },
+        "voice": {
+          "type": "object",
+          "description": "配音设置",
+          "properties": {
+            "voice_type": { "type": "string", "description": "音色类型" },
+            "speed": { "type": "number", "default": 1.0 },
+            "emotion_default": { "type": "string", "default": "neutral" }
+          }
+        },
+        "style_keywords": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "风格关键词（用于 Prompt 构建）"
+        }
+      }
+    },
+    "CharacterAssetDir": {
+      "type": "object",
+      "description": "character_list/{CharName}/ 目录结构规范",
+      "required": ["best.png", "best.txt"],
+      "properties": {
+        "best.png": {
+          "type": "string",
+          "description": "最佳参考图（必须）—— 角色正面全身或半身像，清晰展示外观特征"
+        },
+        "best.txt": {
+          "type": "string",
+          "description": "<TOK> 外观描述文本，如 '<TOK> has long blonde hair in a braid, wearing a sparkling blue dress, ice blue eyes, fair skin'"
+        },
+        "photo_N.png": {
+          "type": "string",
+          "description": "多角度参考图（photo_1.png ~ photo_5.png），不同角度/表情/姿态"
+        },
+        "photo_N.txt": {
+          "type": "string",
+          "description": "对应参考图的描述文本"
+        },
+        "audio.wav": {
+          "type": "string",
+          "description": "角色声音参考音频（用于 TTS 声音克隆）"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "description": "characters.json 文件结构",
+  "required": ["project_id", "characters"],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "description": "所属项目 ID"
+    },
+    "extracted_from": {
+      "type": "string",
+      "description": "角色来源（如 script_synopsis.json）"
+    },
+    "extracted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "提取时间"
+    },
+    "characters": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/CharacterEntry" },
+      "description": "角色列表"
+    }
+  },
+  "examples": [
+    {
+      "project_id": "proj001",
+      "extracted_from": "script_synopsis.json",
+      "extracted_at": "2026-02-27T10:30:00Z",
+      "characters": [
+        {
+          "name": "Elsa",
+          "description": "阿伦黛尔王国的女王，拥有强大的冰雪魔法力量，性格内敛但坚毅",
+          "appearance_description": "金色长发编成辫子，穿着闪亮的蓝色裙子，冰蓝色眼睛，肤色白皙",
+          "tok_description": "<TOK> has long blonde hair in a braid, wearing a sparkling blue dress, ice blue eyes, fair skin",
+          "relationships": [
+            { "character": "Anna", "relation": "姐妹" },
+            { "character": "Kristoff", "relation": "妹妹的爱人" }
+          ],
+          "design_status": "designed",
+          "asset_dir": "character_list/Elsa/",
+          "voice": {
+            "voice_type": "young_female",
+            "speed": 1.0,
+            "emotion_default": "calm"
+          },
+          "style_keywords": ["ice queen", "elegant", "blonde braid", "blue dress", "magical"]
+        },
+        {
+          "name": "Anna",
+          "description": "阿伦黛尔公主，Elsa的妹妹，性格开朗勇敢",
+          "appearance_description": "红棕色双辫，穿着紫色斗篷搭配深色裙子，绿色眼睛，脸上有雀斑",
+          "tok_description": "",
+          "relationships": [
+            { "character": "Elsa", "relation": "姐妹" },
+            { "character": "Kristoff", "relation": "恋人" }
+          ],
+          "design_status": "extracted",
+          "asset_dir": "",
+          "voice": {
+            "voice_type": "young_female",
+            "speed": 1.1,
+            "emotion_default": "cheerful"
+          },
+          "style_keywords": ["princess", "brave", "red braids", "purple cape"]
+        }
+      ]
+    }
+  ]
+}

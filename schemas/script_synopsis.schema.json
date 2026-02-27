@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ScriptSynopsis",
+  "description": "剧本摘要数据结构（对应 MovieAgent 的 script_synopsis.json）",
+  "type": "object",
+  "required": ["MovieScript", "Character"],
+  "properties": {
+    "MovieScript": {
+      "type": "string",
+      "description": "故事摘要（150-500词，从导入的小说/剧本中提取的核心叙事）",
+      "minLength": 100
+    },
+    "Character": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "角色名列表（从剧本中提取的所有有名字的角色）",
+      "minItems": 1
+    },
+    "Relationships": {
+      "type": "object",
+      "description": "角色关系映射，键为 '角色A - 角色B' 格式，值为关系描述",
+      "additionalProperties": { "type": "string" },
+      "examples": [
+        { "Anna - Elsa": "Sisters", "Kristoff - Anna": "Love interest" }
+      ]
+    },
+    "raw_script_path": {
+      "type": "string",
+      "description": "原始剧本文件的相对路径（相对于项目目录）"
+    },
+    "title": {
+      "type": "string",
+      "description": "故事标题（从剧本中提取或由用户指定）"
+    },
+    "genre": {
+      "type": "string",
+      "description": "故事类型（如：奇幻、都市、科幻、悬疑等）"
+    },
+    "extracted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "摘要提取时间（ISO 8601）"
+    }
+  },
+  "examples": [
+    {
+      "MovieScript": "Anna, Elsa, Kristoff, Olaf, and Mattias embark on a journey to uncover the truth behind the mysterious voice calling Elsa. As they travel to the enchanted forest, they discover that the past holds secrets about their kingdom and Elsa's powers...",
+      "Character": ["Anna", "Elsa", "Kristoff", "Mattias", "Olaf"],
+      "Relationships": {
+        "Anna - Elsa": "Sisters",
+        "Kristoff - Anna": "Love interest",
+        "Mattias - Anna": "Loyal guard"
+      },
+      "raw_script_path": "raw_script.txt",
+      "title": "Frozen II",
+      "genre": "奇幻",
+      "extracted_at": "2026-02-27T10:00:00Z"
+    }
+  ]
+}

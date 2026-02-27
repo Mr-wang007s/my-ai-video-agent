@@ -1,93 +1,144 @@
 ---
 name: manga-script
-description: 漫剧剧本创作与结构化指南。当需要将故事主题/大纲转化为结构化漫剧剧本、设计场景和对白、控制叙事节奏时，应使用此 Skill。
+description: 剧本导入与解析指南。当需要从完整小说/剧本文本中提取故事摘要和角色列表、生成 script_synopsis.json 时，应使用此 Skill。
 ---
 
-# 漫剧剧本写作
+# 剧本导入与解析
 
-提供漫剧剧本创作的完整方法论，包括三幕式结构、场景设计、对白撰写和情绪节奏控制。
+提供从完整小说/剧本文本中提取故事摘要、角色列表和关系图谱的方法论，输出 MovieAgent 兼容的 `script_synopsis.json` 格式。
 
-## 剧本创作流程
+## 剧本导入流程
 
-### 1. 主题分析与大纲
+### 1. 文本预处理
 
-接收用户输入的主题/大纲后：
+导入用户提供的 `.txt` 文件后：
 
-1. 确定故事类型（都市、奇幻、校园、悬疑等）
-2. 提取核心冲突和主题
-3. 确定主要角色（2-5 个）
-4. 规划三幕结构
+1. 检测文件编码（支持 UTF-8、GBK、GB2312）
+2. 清理格式（去除多余空行、特殊字符）
+3. 统计字数，评估内容长度
+4. 保存原始文本到 `projects/{project_id}/raw_script.txt`
 
-### 2. 三幕式结构
+### 2. 故事摘要提取
 
-| 幕 | 占比 | 功能 | 内容 |
-|----|------|------|------|
-| 第一幕：建置 | 25% | 世界观 + 人物 + 冲突引入 | 日常 → 意外 → 打破平衡 |
-| 第二幕：对抗 | 50% | 冲突升级 + 转折 | 尝试 → 失败 → 转折 → 再尝试 |
-| 第三幕：解决 | 25% | 高潮 + 结局 | 决战 → 解决 → 新平衡/悬念 |
+从完整文本中提取核心叙事摘要（MovieScript 字段）：
 
-### 3. 场景设计原则
+**提取策略**：
+- **短文本**（<5000字）：直接提取核心情节线
+- **中等文本**（5000-50000字）：按章节提取关键情节，压缩为 150-500 词摘要
+- **长文本**（>50000字）：分段提取 → 合并 → 精炼为 150-500 词摘要
 
-- 每个场景有明确的**目的**（推动剧情/展现角色/制造冲突）
-- 场景转换要有逻辑连贯性
-- 每场景包含：地点、时间、出场角色、对白、情绪氛围
-- 漫剧适合 8-20 个场景/话
+**摘要要求**：
+- 150-500 词（英文或对应中文长度）
+- 保留核心冲突和主要转折点
+- 包含所有主要角色的出场和关键行为
+- 按时间线顺序叙述
+- 不添加原文中没有的情节
 
-### 4. 对白写作规范
+**Prompt 模板**：
+```
+请阅读以下小说/剧本文本，提取核心故事摘要。
 
-- 简洁有力，每句不超过 20 字（适合字幕展示）
-- 对白要体现角色性格差异
-- 避免大段独白（漫剧以画面为主）
-- 内心独白用旁白形式处理
-- 关键台词（名场面）要有记忆点
+要求：
+1. 摘要长度：150-500词
+2. 按时间线顺序叙述主要情节
+3. 保留所有主要角色的关键行为
+4. 保留核心冲突和主要转折点
+5. 不添加原文中没有的情节
+6. 使用第三人称叙事
 
-### 5. 情绪节奏控制
+文本内容：
+{raw_script_content}
+```
 
-遵循项目 Rules 中 `narrative-rhythm.md` 的节奏约束：
-- 开头平稳引入
-- 中段逐步升温
-- 高潮处情绪爆发
-- 结尾余韵或悬念
+### 3. 角色提取
+
+从文本中识别所有有名字的角色：
+
+**提取维度**：
+- 角色名称（原文中使用的称呼）
+- 出场频率（判断主要/次要角色）
+- 角色关系
+
+**Prompt 模板**：
+```
+请从以下文本中提取所有有名字的角色，并分析角色关系。
+
+要求：
+1. 列出所有有明确名字的角色
+2. 区分主要角色和次要角色（根据出场频率和剧情重要性）
+3. 分析角色之间的关系（亲属、朋友、对手、师徒等）
+4. 关系格式："角色A - 角色B": "关系描述"
+
+文本内容：
+{raw_script_content}
+```
+
+### 4. 类型和风格判断
+
+自动判断故事类型和适合的画面风格：
+
+| 文本特征 | 推断类型 | 推荐风格 |
+|----------|---------|---------|
+| 修仙/武侠元素 | 奇幻 | manga / anime |
+| 现代都市/办公场景 | 都市 | manga / realistic |
+| 校园/青春 | 校园 | manga / anime |
+| 悬疑/推理 | 悬疑 | comic / manga |
+| 科技/太空 | 科幻 | anime / comic |
 
 ## 输出格式
 
-剧本输出为 JSON 格式，严格遵循 `schemas/script.schema.json` 定义：
+### script_synopsis.json
+
+严格遵循 `schemas/script_synopsis.schema.json`：
 
 ```json
 {
-  "id": "scr001",
-  "project_id": "proj001",
-  "title": "标题",
-  "synopsis": "50-100 字故事梗概",
-  "scenes": [
-    {
-      "id": "S01",
-      "description": "场景视觉描述",
-      "location": "地点",
-      "time": "时间",
-      "characters": ["char_id"],
-      "dialogue": [
-        {
-          "character": "角色名",
-          "text": "台词",
-          "emotion": "neutral/happy/sad/angry/surprised/fearful",
-          "action": "伴随动作"
-        }
-      ],
-      "emotion": "场景整体情绪",
-      "duration": 8
-    }
-  ]
+  "MovieScript": "故事摘要（150-500词）...",
+  "Character": ["角色A", "角色B", "角色C"],
+  "Relationships": {
+    "角色A - 角色B": "关系描述",
+    "角色A - 角色C": "关系描述"
+  },
+  "raw_script_path": "raw_script.txt",
+  "title": "故事标题",
+  "genre": "故事类型",
+  "extracted_at": "2026-02-27T10:00:00Z"
 }
 ```
 
-## 写作要点
+### 注意事项
 
-- 场景描述要具象化，便于后续生成分镜 Prompt
-- 每个场景的 `duration` 预估需合理（参考 narrative-rhythm 规则）
-- 角色名使用中文，角色 ID 使用 `char_` 前缀的英文标识
-- 对白中的情绪标签必须从预定义枚举中选择
+- `Character` 数组只包含角色名（字符串），不包含描述
+- `MovieScript` 是纯叙事文本，不是结构化数据
+- `Relationships` 的键格式为 "角色A - 角色B"（用 " - " 连接）
+- `title` 如果原文有标题则提取，否则由 AI 根据内容命名
+
+## 与下游流程的关系
+
+### → /extract-characters（Step 3a）
+
+`script_synopsis.json` 中的 `Character` 列表 + `raw_script.txt` 原文用于提取每个角色的详细信息，输出 `characters.json`。
+
+### → /break-script（Step 4）
+
+`script_synopsis.json` 中的 `MovieScript` + `Character` 直接作为 screenwriterCoT 的输入，进行 Sub-Script 拆解。
 
 ## 数据存储
 
-完成的剧本 JSON 写入 `projects/{project_id}/script.json`。
+- 原始文本：`projects/{project_id}/raw_script.txt`
+- 提取摘要：`projects/{project_id}/script_synopsis.json`
+
+## 使用 import_script.py
+
+导入脚本通过 Python 执行：
+
+```bash
+python scripts/import_script.py --action import --project_id {project_id} --script_path "{用户提供的.txt路径}"
+```
+
+脚本功能：
+1. 读取 .txt 文件（自动检测编码）
+2. 复制到 `projects/{project_id}/raw_script.txt`
+3. 调用 LLM 提取摘要 + 角色列表
+4. 输出 `script_synopsis.json`
+5. 更新项目状态为 `imported`

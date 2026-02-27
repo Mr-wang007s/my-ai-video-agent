@@ -1,4 +1,13 @@
 -- AI 漫剧流水线数据库初始化脚本
+-- 注意：此脚本使用 CREATE TABLE IF NOT EXISTS，更新表结构时需先 DROP 旧表
+
+-- 如需完全重建，取消以下注释：
+-- DROP TABLE IF EXISTS generations;
+-- DROP TABLE IF EXISTS assets;
+-- DROP TABLE IF EXISTS characters;
+-- DROP TABLE IF EXISTS storyboards;
+-- DROP TABLE IF EXISTS scripts;
+-- DROP TABLE IF EXISTS projects;
 
 CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
@@ -54,7 +63,7 @@ CREATE TABLE IF NOT EXISTS assets (
 CREATE TABLE IF NOT EXISTS generations (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL REFERENCES projects(id),
-    stage TEXT NOT NULL CHECK(stage IN ('script','storyboard','image','video','audio','compose')),
+    stage TEXT NOT NULL CHECK(stage IN ('script','storyboard','image','video','audio','compose','import','extract','design','breakdown')),
     input_params TEXT,
     output_path TEXT,
     status TEXT DEFAULT 'pending' CHECK(status IN ('pending','running','success','failed')),

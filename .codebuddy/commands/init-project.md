@@ -18,13 +18,23 @@ description: "Step 1: 初始化漫剧项目 — 创建项目、生成目录结�
    python scripts/db_manager.py --action create_project --data '{"name": "{name}", "description": "{description}", "style": "{style}", "config": {"target_duration": {duration}, "resolution": "{resolution}", "language": "{language}"}}'
    ```
 
-3. **验证**：确认返回 `project_id` 且目录结构已创建：
-   - `projects/{project_id}/images/characters/`
+3. **补充目录结构**：在项目目录下创建新增的子目录：
+   ```bash
+   mkdir -p projects/{project_id}/character_list
+   mkdir -p projects/{project_id}/final
+   ```
+
+4. **验证**：确认返回 `project_id` 且目录结构已创建：
+   - `projects/{project_id}/images/characters/`（兼容旧版）
    - `projects/{project_id}/images/shots/`
    - `projects/{project_id}/videos/`
    - `projects/{project_id}/audio/`
+   - `projects/{project_id}/character_list/`（MovieAgent 角色资产库）
+   - `projects/{project_id}/final/`（最终成片输出）
 
-4. **告知用户**：返回 project_id，提示用户下一步使用 `/confirm-story` 确认内容。
+5. **告知用户**：返回 project_id，提示用户下一步：
+   - 准备好剧本/小说 `.txt` 文件
+   - 执行 `/import-script` 导入剧本
 
 ## 注意事项
 
