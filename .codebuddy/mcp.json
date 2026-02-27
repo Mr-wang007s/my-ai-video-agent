@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "seedance": {
+      "command": "python",
+      "args": ["scripts/seedance_generate.py", "--config-file"],
+      "env": {
+        "ARK_API_KEY": "${ARK_API_KEY}",
+        "ARK_BASE_URL": "${ARK_BASE_URL}",
+        "SEEDANCE_MODEL": "${SEEDANCE_MODEL}"
+      },
+      "_comment": "Seedance 2.0 视频生成（音视频联合）MCP Server 预留。当前阶段 Agent 通过 Bash 直接调用 scripts/*.py"
+    },
+    "tts": {
+      "command": "python",
+      "args": ["scripts/tts_generate.py", "--config-file"],
+      "env": {
+        "VOLC_TTS_APP_ID": "${VOLC_TTS_APP_ID}",
+        "VOLC_TTS_TOKEN": "${VOLC_TTS_TOKEN}"
+      },
+      "_comment": "TTS 语音合成 MCP Server 预留（仅用于 Seedance 原生音频不佳时的 Override）"
+    },
+    "image-gen": {
+      "command": "python",
+      "args": ["scripts/image_generate.py", "--config-file"],
+      "env": {
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "SD_API_URL": "${SD_API_URL}"
+      },
+      "_comment": "图像生成 MCP Server 预留"
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MangaScript",
+  "description": "AI 漫剧剧本数据结构",
+  "type": "object",
+  "required": ["id", "project_id", "scenes"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "剧本唯一标识"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "所属项目 ID"
+    },
+    "title": {
+      "type": "string",
+      "description": "剧本标题"
+    },
+    "synopsis": {
+      "type": "string",
+      "description": "故事梗概"
+    },
+    "scenes": {
+      "type": "array",
+      "description": "场景列表",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "type": "string", "description": "场景 ID（如 S01, S02）" },
+          "description": { "type": "string", "description": "场景描述" },
+          "location": { "type": "string", "description": "场景地点" },
+          "time": { "type": "string", "description": "时间（白天/夜晚/黄昏等）" },
+          "characters": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "出场角色 ID 列表"
+          },
+          "dialogue": {
+            "type": "array",
+            "description": "对白列表",
+            "items": {
+              "type": "object",
+              "properties": {
+                "character": { "type": "string", "description": "角色名" },
+                "text": { "type": "string", "description": "台词内容" },
+                "emotion": { "type": "string", "description": "情绪（neutral/happy/sad/angry/surprised/fearful）" },
+                "action": { "type": "string", "description": "伴随动作" }
+              }
+            }
+          },
+          "emotion": { "type": "string", "description": "场景整体情绪氛围" },
+          "duration": { "type": "number", "description": "预估时长（秒）" }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "genre": { "type": "string" },
+        "theme": { "type": "string" },
+        "total_duration": { "type": "number" }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "scr001",
+      "project_id": "proj001",
+      "title": "都市修仙记·第一话",
+      "synopsis": "上班族李明在加班的夜晚，意外触发了古老的修仙传承...",
+      "scenes": [
+        {
+          "id": "S01",
+          "description": "深夜的办公室，李明独自加班，窗外城市灯火通明",
+          "location": "办公室",
+          "time": "深夜",
+          "characters": ["char_liming"],
+          "dialogue": [
+            {
+              "character": "李明",
+              "text": "又是一个加班到深夜的日子...",
+              "emotion": "sad",
+              "action": "揉眼睛，疲惫地看向窗外"
+            }
+          ],
+          "emotion": "melancholy",
+          "duration": 8
+        }
+      ]
+    }
+  ]
+}

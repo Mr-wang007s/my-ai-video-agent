@@ -1,0 +1,64 @@
+[
+  {
+    "id": "char_chenchen",
+    "project_id": "b0d9ceaa",
+    "name": "陈辰",
+    "description": "25 岁的互联网公司程序员，性格内向腼腆，长期加班导致略显疲惫，内心渴望温暖但不善表达",
+    "appearance": {
+      "gender": "male",
+      "age_range": "24-26",
+      "hair": "short black hair, slightly disheveled from long work hours",
+      "eyes": "dark brown eyes, tired but kind gaze, slight dark circles",
+      "build": "slim build, slightly hunched posture",
+      "clothing": "wrinkled navy blue dress shirt with sleeves rolled up, loosened dark tie, black trousers, carrying a black laptop bag",
+      "distinguishing_features": "rectangular black-framed glasses, always carries a laptop bag, slight stubble"
+    },
+    "style_keywords": [
+      "manga style",
+      "young man",
+      "programmer",
+      "tired office worker",
+      "black short hair",
+      "glasses",
+      "wrinkled shirt"
+    ],
+    "reference_images": [],
+    "voice": {
+      "voice_type": "young_male",
+      "speed": 0.95,
+      "emotion_default": "neutral"
+    },
+    "prompt_template": "a young man with short disheveled black hair, rectangular black-framed glasses, wearing a wrinkled navy blue dress shirt with loosened dark tie, tired but kind expression, slim build, manga style"
+  },
+  {
+    "id": "char_linxiaonuan",
+    "project_id": "b0d9ceaa",
+    "name": "林小暖",
+    "description": "22 岁的便利店夜班店员，性格开朗温暖，总是面带微笑，是深夜便利店里的一道暖光",
+    "appearance": {
+      "gender": "female",
+      "age_range": "20-23",
+      "hair": "brown hair tied in a neat ponytail with a small orange hair clip",
+      "eyes": "bright amber eyes, warm and gentle gaze, slightly upturned",
+      "build": "petite build, cheerful posture",
+      "clothing": "green convenience store apron over a white t-shirt, name tag pinned on chest, light blue jeans",
+      "distinguishing_features": "small orange hair clip, warm smile that reaches her eyes, slightly rosy cheeks"
+    },
+    "style_keywords": [
+      "manga style",
+      "young woman",
+      "convenience store clerk",
+      "brown ponytail",
+      "green apron",
+      "warm smile",
+      "cheerful"
+    ],
+    "reference_images": [],
+    "voice": {
+      "voice_type": "young_female",
+      "speed": 1.05,
+      "emotion_default": "happy"
+    },
+    "prompt_template": "a young woman with brown hair in a ponytail with small orange hair clip, bright amber eyes, wearing a green convenience store apron over white t-shirt, warm gentle smile, petite build, manga style"
+  }
+]

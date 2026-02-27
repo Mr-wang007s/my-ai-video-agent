@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MangaStoryboard",
+  "description": "AI 漫剧分镜数据结构（适配 Seedance 2.0 音视频联合生成）",
+  "type": "object",
+  "required": ["id", "project_id", "shots"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "分镜唯一标识"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "所属项目 ID"
+    },
+    "script_id": {
+      "type": "string",
+      "description": "关联剧本 ID"
+    },
+    "shots": {
+      "type": "array",
+      "description": "镜头列表",
+      "items": {
+        "type": "object",
+        "required": ["id", "scene_id", "prompt", "audio_prompt"],
+        "properties": {
+          "id": { "type": "string", "description": "镜头 ID（如 SH001, SH002）" },
+          "scene_id": { "type": "string", "description": "关联场景 ID" },
+          "shot_type": {
+            "type": "string",
+            "enum": ["wide", "medium", "close-up", "extreme-close-up", "over-shoulder", "pov", "bird-eye", "low-angle"],
+            "description": "镜头类型"
+          },
+          "camera_movement": {
+            "type": "string",
+            "enum": ["static", "pan-left", "pan-right", "tilt-up", "tilt-down", "zoom-in", "zoom-out", "dolly", "tracking"],
+            "description": "运镜方式"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "文生图 Prompt（英文）—— 用于生成静态分镜图"
+          },
+          "video_prompt": {
+            "type": "string",
+            "description": "图生视频 Prompt —— 描述动态变化、运镜，传给 Seedance 2.0。含 @ 引用语法。"
+          },
+          "audio_prompt": {
+            "type": "string",
+            "description": "音效 Prompt（中文）—— 描述该镜头的音效、配音、BGM，传给 Seedance 2.0 音视频联合生成"
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "反向 Prompt"
+          },
+          "characters": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "画面中出场角色 ID"
+          },
+          "dialogue_text": {
+            "type": "string",
+            "description": "该镜头对应的对白文本（中文）"
+          },
+          "duration": {
+            "type": "number",
+            "description": "镜头时长（秒）",
+            "minimum": 4,
+            "maximum": 15
+          },
+          "transition": {
+            "type": "string",
+            "enum": ["cut", "fade", "dissolve", "wipe"],
+            "default": "cut",
+            "description": "转场方式"
+          },
+          "seedance_mode": {
+            "type": "string",
+            "enum": ["t2v", "i2v", "multimodal"],
+            "default": "i2v",
+            "description": "Seedance 2.0 生成模式：t2v（文生视频）/ i2v（图生视频）/ multimodal（多模态参考）"
+          },
+          "ratio": {
+            "type": "string",
+            "enum": ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+            "default": "16:9",
+            "description": "视频宽高比"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "total_shots": { "type": "integer" },
+        "total_duration": { "type": "number" },
+        "style_guide": { "type": "string" },
+        "default_ratio": { "type": "string", "default": "16:9" },
+        "default_resolution": { "type": "string", "default": "1080p" }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "sb001",
+      "project_id": "proj001",
+      "script_id": "scr001",
+      "shots": [
+        {
+          "id": "SH001",
+          "scene_id": "S01",
+          "shot_type": "wide",
+          "camera_movement": "zoom-in",
+          "prompt": "manga style, nighttime cityscape from office window, glowing skyscrapers, a lone figure sitting at desk, warm interior light contrasting cool city lights, melancholy atmosphere",
+          "video_prompt": "@Image1 作为首帧，镜头从窗外城市远景缓缓推进到室内人物，窗帘微微飘动",
+          "audio_prompt": "深夜安静的办公室，空调低沉嗡嗡声，远处城市车流微弱声，淡淡忧伤的钢琴旋律缓缓响起",
+          "negative_prompt": "low quality, blurry, deformed, realistic photo",
+          "characters": ["char_liming"],
+          "dialogue_text": "",
+          "duration": 5,
+          "transition": "fade",
+          "seedance_mode": "i2v",
+          "ratio": "16:9"
+        },
+        {
+          "id": "SH002",
+          "scene_id": "S01",
+          "shot_type": "close-up",
+          "camera_movement": "static",
+          "prompt": "manga style, close-up of a young man with short messy black hair and thin-framed glasses, tired expression, dim office lighting, computer screen glow on face",
+          "video_prompt": "@Image1 作为李明外观参考。@Image2 作为首帧，角色缓缓抬头，轻叹一口气，眼神中带着疲惫",
+          "audio_prompt": "年轻男性疲惫地轻叹：'又是一个加班到深夜的日子...'，键盘敲击声停止，安静环境",
+          "negative_prompt": "low quality, blurry, deformed",
+          "characters": ["char_liming"],
+          "dialogue_text": "又是一个加班到深夜的日子...",
+          "duration": 5,
+          "transition": "cut",
+          "seedance_mode": "multimodal",
+          "ratio": "16:9"
+        }
+      ],
+      "metadata": {
+        "total_shots": 2,
+        "total_duration": 10,
+        "style_guide": "manga, melancholy, urban night",
+        "default_ratio": "16:9",
+        "default_resolution": "1080p"
+      }
+    }
+  ]
+}

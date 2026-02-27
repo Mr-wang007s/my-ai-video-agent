@@ -1,0 +1,29 @@
+# 环境变量
+.env
+
+# 数据库
+data.db
+data.db-shm
+data.db-wal
+
+# 生成的资产（大文件）
+assets/outputs/
+projects/*/images/
+projects/*/videos/
+projects/*/audio/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

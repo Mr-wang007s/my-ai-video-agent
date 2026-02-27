@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MangaCharacter",
+  "description": "AI 漫剧角色数据结构",
+  "type": "object",
+  "required": ["id", "project_id", "name"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "角色唯一标识（如 char_liming）"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "所属项目 ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "角色名称"
+    },
+    "description": {
+      "type": "string",
+      "description": "角色简介（性格、背景）"
+    },
+    "appearance": {
+      "type": "object",
+      "description": "外观描述",
+      "properties": {
+        "gender": { "type": "string", "enum": ["male", "female", "other"] },
+        "age_range": { "type": "string", "description": "年龄段（如 20-25）" },
+        "hair": { "type": "string", "description": "发型和发色" },
+        "eyes": { "type": "string", "description": "眼睛特征" },
+        "build": { "type": "string", "description": "体型" },
+        "clothing": { "type": "string", "description": "服装描述" },
+        "distinguishing_features": { "type": "string", "description": "显著特征" }
+      }
+    },
+    "style_keywords": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "风格关键词（用于 Prompt 复用）"
+    },
+    "reference_images": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "参考图路径列表"
+    },
+    "voice": {
+      "type": "object",
+      "description": "配音设置",
+      "properties": {
+        "voice_type": { "type": "string", "description": "音色类型" },
+        "speed": { "type": "number", "default": 1.0 },
+        "emotion_default": { "type": "string", "default": "neutral" }
+      }
+    },
+    "prompt_template": {
+      "type": "string",
+      "description": "角色在分镜 Prompt 中的固定描述片段，确保一致性"
+    }
+  },
+  "examples": [
+    {
+      "id": "char_liming",
+      "project_id": "proj001",
+      "name": "李明",
+      "description": "26 岁的普通上班族，性格内向但心地善良，意外获得修仙传承后开始了双面生活",
+      "appearance": {
+        "gender": "male",
+        "age_range": "25-28",
+        "hair": "short black hair, slightly messy",
+        "eyes": "dark brown eyes, gentle gaze",
+        "build": "average build, slightly thin",
+        "clothing": "white dress shirt, loosened tie, dark trousers",
+        "distinguishing_features": "wears thin-framed glasses, slight dark circles under eyes"
+      },
+      "style_keywords": [
+        "manga style",
+        "young man",
+        "office worker",
+        "black short hair",
+        "glasses",
+        "gentle expression"
+      ],
+      "reference_images": [],
+      "voice": {
+        "voice_type": "young_male",
+        "speed": 1.0,
+        "emotion_default": "neutral"
+      },
+      "prompt_template": "a young man with short messy black hair, thin-framed glasses, wearing a white dress shirt with loosened tie, gentle expression, manga style"
+    }
+  ]
+}

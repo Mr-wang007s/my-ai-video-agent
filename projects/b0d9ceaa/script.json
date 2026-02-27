@@ -1,0 +1,69 @@
+{
+  "id": "scr_b0d9",
+  "project_id": "b0d9ceaa",
+  "title": "深夜便利店的奇妙邂逅",
+  "synopsis": "深夜，加班青年陈辰走进一家便利店，遇到了总是微笑的店员林小暖。一碗关东煮、一句温暖的话语，让两个孤独的灵魂找到了深夜里的光。",
+  "scenes": [
+    {
+      "id": "S01",
+      "description": "深夜的城市街道，霓虹灯映照着疲惫的陈辰。他拖着沉重的脚步，推开便利店的玻璃门，门铃叮咚响起。",
+      "location": "城市街道 → 便利店入口",
+      "time": "深夜",
+      "characters": ["char_chenchen"],
+      "dialogue": [],
+      "emotion": "melancholy",
+      "duration": 10
+    },
+    {
+      "id": "S02",
+      "description": "便利店内明亮温暖，店员林小暖正在整理货架。她抬头看到陈辰，露出招牌式的温暖笑容。陈辰来到关东煮柜台前，犹豫不决。",
+      "location": "便利店内",
+      "time": "深夜",
+      "characters": ["char_chenchen", "char_linxiaonuan"],
+      "dialogue": [
+        {
+          "character": "林小暖",
+          "text": "欢迎光临，今天加班到很晚吧？",
+          "emotion": "happy",
+          "action": "微笑着放下手中的商品，转向陈辰"
+        },
+        {
+          "character": "陈辰",
+          "text": "嗯...随便看看。",
+          "emotion": "neutral",
+          "action": "低头回避目光，走向关东煮柜台"
+        }
+      ],
+      "emotion": "warm",
+      "duration": 15
+    },
+    {
+      "id": "S03",
+      "description": "林小暖端来一碗热气腾腾的关东煮放在陈辰面前。两人在便利店的窗边座位并排坐下，窗外是深夜的城市，窗内是温暖的灯光。",
+      "location": "便利店窗边座位",
+      "time": "深夜",
+      "characters": ["char_chenchen", "char_linxiaonuan"],
+      "dialogue": [
+        {
+          "character": "林小暖",
+          "text": "这碗请你的，深夜还在努力的人值得被温暖。",
+          "emotion": "happy",
+          "action": "将关东煮推到陈辰面前，眼神温柔"
+        },
+        {
+          "character": "陈辰",
+          "text": "谢谢...好久没有人这样对我说话了。",
+          "emotion": "surprised",
+          "action": "愣住，眼眶微微泛红，嘴角慢慢上扬"
+        }
+      ],
+      "emotion": "heartwarming",
+      "duration": 15
+    }
+  ],
+  "metadata": {
+    "genre": "治愈日常",
+    "theme": "深夜的温暖邂逅",
+    "total_duration": 40
+  }
+}
