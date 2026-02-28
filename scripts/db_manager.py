@@ -10,6 +10,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import sys
 import uuid
 import sqlite3
@@ -53,8 +54,29 @@ def init_db(force: bool = False):
     return {"status": "success", "message": f"Database initialized{' (force rebuild)' if force else ''}"}
 
 
+def _generate_project_id(name: str) -> str:
+    """生成可读的项目ID：YYYYMMDD_HHMMSS_别名。
+    
+    别名规则：
+    - 中文/英文名称保留，空格和特殊字符转为下划线
+    - 限制别名最长 30 字符
+    - 如 "我的漫剧" → "20260228_143025_我的漫剧"
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # 只保留中文、英文、数字、下划线、连字符
+    alias = re.sub(r'[^\w\u4e00-\u9fff-]', '_', name)
+    # 合并连续下划线，去除首尾下划线
+    alias = re.sub(r'_+', '_', alias).strip('_')
+    # 限制长度
+    if len(alias) > 30:
+        alias = alias[:30].rstrip('_')
+    if not alias:
+        alias = str(uuid.uuid4())[:6]
+    return f"{timestamp}_{alias}"
+
+
 def create_project(data: dict) -> dict:
-    project_id = data.get("id", str(uuid.uuid4())[:8])
+    project_id = data.get("id") or _generate_project_id(data["name"])
     conn = get_connection()
     conn.execute(
         "INSERT INTO projects (id, name, description, style, status, config) VALUES (?, ?, ?, ?, ?, ?)",
