@@ -128,17 +128,38 @@ description: 剧本导入与解析指南。当需要从完整小说/剧本文本
 - 原始文本：`projects/{project_id}/raw_script.txt`
 - 提取摘要：`projects/{project_id}/script_synopsis.json`
 
-## 使用 import_script.py
+## MCP Tool 调用指引
 
-导入脚本通过 Python 执行：
+本 Skill 涉及以下 MCP tools（`manga-agent` server）：
 
-```bash
-python scripts/import_script.py --action import --project_id {project_id} --script_path "{用户提供的.txt路径}"
+### Step 1: 创建项目
+```
+mcp: project_create(name="项目名", description="描述", style="manga")
+→ 返回 project_id
 ```
 
-脚本功能：
-1. 读取 .txt 文件（自动检测编码）
-2. 复制到 `projects/{project_id}/raw_script.txt`
-3. 调用 LLM 提取摘要 + 角色列表
-4. 输出 `script_synopsis.json`
-5. 更新项目状态为 `imported`
+### Step 2: 导入剧本
+```
+mcp: script_import(project_id="...", script_path="用户提供的.txt路径")
+→ 自动检测编码、复制到 raw_script.txt、返回统计信息
+```
+
+### Step 2b: 读取剧本文本（用于 LLM 摘要提取）
+```
+mcp: script_text(project_id="...", max_chars=0)
+→ 返回完整剧本文本，作为 LLM 提取摘要的输入
+```
+
+### Step 2c: 更新状态 + 记录日志
+```
+mcp: project_update_status(project_id="...", status="imported")
+mcp: generation_log(project_id="...", stage="import", status="success")
+```
+
+### 完整流程
+1. `project_create` → 获得 project_id
+2. `script_import` → 导入 .txt 到项目目录
+3. `script_text` → 读取全文，用 LLM 提取摘要和角色列表
+4. 将提取结果写入 `projects/{project_id}/script_synopsis.json`（使用 write_to_file）
+5. `project_update_status` → 状态改为 `imported`
+6. `generation_log` → 记录导入成功

@@ -28,45 +28,43 @@ Seedance 2.0 是字节跳动发布的新一代 AI 视频生成模型，采用**�
 
 ## 调用方式
 
-通过 `scripts/seedance_generate.py` 脚本调用：
+通过 MCP tool `video_generate`（`manga-agent` server）调用：
 
 ### 文生视频
-```bash
-python scripts/seedance_generate.py --config '{
-  "mode": "t2v",
-  "prompt": "一个年轻男子坐在深夜办公室窗前，窗外城市灯火，他缓缓抬头看向窗外，轻叹一口气",
-  "audio_prompt": "安静的办公室环境音，键盘敲击声渐停，一声轻叹",
-  "output_dir": "projects/proj001/videos",
-  "duration": 5,
-  "resolution": "1080p",
-  "ratio": "16:9"
-}'
+```
+mcp: video_generate(
+     prompt="一个年轻男子坐在深夜办公室窗前，窗外城市灯火，他缓缓抬头看向窗外，轻叹一口气",
+     output_dir="projects/{project_id}/videos",
+     mode="t2v", duration=5, resolution="1080p", ratio="16:9",
+     audio_prompt="安静的办公室环境音，键盘敲击声渐停，一声轻叹")
 ```
 
 ### 图生视频
-```bash
-python scripts/seedance_generate.py --config '{
-  "mode": "i2v",
-  "image_paths": ["projects/proj001/images/SH001.png"],
-  "prompt": "@Image1 作为首帧，角色缓缓转头，微风吹动发丝，镜头慢慢推进",
-  "audio_prompt": "微风声，衣物轻微摩擦声",
-  "output_dir": "projects/proj001/videos",
-  "shot_id": "SH001",
-  "duration": 5
-}'
+```
+mcp: video_generate(
+     prompt="@Image1 作为首帧，角色缓缓转头，微风吹动发丝，镜头慢慢推进",
+     output_dir="projects/{project_id}/videos",
+     mode="i2v", duration=5, shot_id="SH001",
+     image_paths='["projects/{project_id}/images/SH001.png"]',
+     audio_prompt="微风声，衣物轻微摩擦声")
 ```
 
 ### 多模态参考（多角色故事）
-```bash
-python scripts/seedance_generate.py --config '{
-  "mode": "multimodal",
-  "image_paths": ["assets/characters/liming_ref.png", "assets/characters/xiaoli_ref.png", "projects/proj001/images/cafe_bg.png"],
-  "prompt": "@Image1 和 @Image2 作为男女主角外观。场景在 @Image3 咖啡馆中，两人面对面坐着，男生递出一杯咖啡，女生微笑接过",
-  "audio_prompt": "咖啡馆轻柔背景音乐，杯碟碰撞声，轻声对话",
-  "output_dir": "projects/proj001/videos",
-  "shot_id": "SH005",
-  "duration": 10
-}'
+```
+mcp: video_generate(
+     prompt="@Image1 和 @Image2 作为男女主角外观。场景在 @Image3 咖啡馆中，两人面对面坐着",
+     output_dir="projects/{project_id}/videos",
+     mode="multimodal", duration=10, shot_id="SH005",
+     image_paths='["character_list/CharA/best.png", "character_list/CharB/best.png", "images/shots/bg.png"]',
+     audio_prompt="咖啡馆轻柔背景音乐，杯碟碰撞声，轻声对话")
+```
+
+### 资产注册
+视频生成后，用 `asset_save` 注册到数据库：
+```
+mcp: asset_save(project_id="...", asset_type="video", name="S1_Sc1_Shot1", 
+     file_path="videos/s1_sc1_shot1.mp4")
+mcp: generation_log(project_id="...", stage="video", status="success")
 ```
 
 ## @ 引用语法

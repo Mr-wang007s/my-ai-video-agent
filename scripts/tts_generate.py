@@ -16,6 +16,7 @@ import hashlib
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
+from retry_util import with_retry, check_response, RetryableError
 
 load_dotenv()
 
@@ -57,31 +58,31 @@ def generate_speech_volc(text: str, voice: str, output_dir: str, **kwargs) -> di
     emotion = kwargs.get("emotion", "neutral")
 
     try:
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer;{VOLC_TTS_TOKEN}"
-        }
-
-        payload = {
-            "app": {"appid": VOLC_TTS_APP_ID},
-            "user": {"uid": "manga-agent"},
-            "audio": {
-                "voice_type": voice_config["voice_type"],
-                "encoding": "mp3",
-                "speed_ratio": speed
-            },
-            "request": {
-                "reqid": hashlib.md5(f"{text}{time.time()}".encode()).hexdigest(),
-                "text": text,
-                "operation": "query"
+        @with_retry(max_retries=3, delays=(1, 3, 10))
+        def _call_volc_tts():
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer;{VOLC_TTS_TOKEN}"
             }
-        }
+            payload = {
+                "app": {"appid": VOLC_TTS_APP_ID},
+                "user": {"uid": "manga-agent"},
+                "audio": {
+                    "voice_type": voice_config["voice_type"],
+                    "encoding": "mp3",
+                    "speed_ratio": speed
+                },
+                "request": {
+                    "reqid": hashlib.md5(f"{text}{time.time()}".encode()).hexdigest(),
+                    "text": text,
+                    "operation": "query"
+                }
+            }
+            logger.info(f"Calling Volc TTS: voice={voice}, text='{text[:30]}...', speed={speed}")
+            resp = requests.post(VOLC_TTS_API_URL, headers=headers, json=payload, timeout=30)
+            return check_response(resp).json()
 
-        logger.info(f"Calling Volc TTS: voice={voice}, text='{text[:30]}...', speed={speed}")
-
-        resp = requests.post(VOLC_TTS_API_URL, headers=headers, json=payload, timeout=30)
-        resp.raise_for_status()
-        result = resp.json()
+        result = _call_volc_tts()
 
         if result.get("code") == 3000:
             import base64
@@ -110,9 +111,14 @@ def generate_speech_azure(text: str, voice: str, output_dir: str, **kwargs) -> d
     speed = kwargs.get("speed", 1.0)
 
     try:
-        token_url = f"https://{AZURE_TTS_REGION}.api.cognitive.microsoft.com/sts/v1.0/issueToken"
-        token_resp = requests.post(token_url, headers={"Ocp-Apim-Subscription-Key": AZURE_TTS_KEY}, timeout=10)
-        token = token_resp.text
+        @with_retry(max_retries=3, delays=(1, 3, 10))
+        def _get_azure_token():
+            token_url = f"https://{AZURE_TTS_REGION}.api.cognitive.microsoft.com/sts/v1.0/issueToken"
+            token_resp = requests.post(token_url, headers={"Ocp-Apim-Subscription-Key": AZURE_TTS_KEY}, timeout=15)
+            check_response(token_resp)
+            return token_resp.text
+
+        token = _get_azure_token()
 
         ssml = f"""
         <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='zh-CN'>
@@ -124,20 +130,24 @@ def generate_speech_azure(text: str, voice: str, output_dir: str, **kwargs) -> d
         </speak>
         """
 
-        tts_url = f"https://{AZURE_TTS_REGION}.tts.speech.microsoft.com/cognitiveservices/v1"
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/ssml+xml",
-            "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3"
-        }
+        @with_retry(max_retries=3, delays=(1, 3, 10))
+        def _call_azure_tts():
+            tts_url = f"https://{AZURE_TTS_REGION}.tts.speech.microsoft.com/cognitiveservices/v1"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/ssml+xml",
+                "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3"
+            }
+            resp = requests.post(tts_url, headers=headers, data=ssml.encode("utf-8"), timeout=30)
+            check_response(resp)
+            return resp.content
 
-        resp = requests.post(tts_url, headers=headers, data=ssml.encode("utf-8"), timeout=30)
-        resp.raise_for_status()
+        audio_content = _call_azure_tts()
 
         audio_name = f"tts_azure_{hashlib.md5(text.encode()).hexdigest()[:8]}_{int(time.time())}.mp3"
         output_path = os.path.join(output_dir, audio_name)
         with open(output_path, "wb") as af:
-            af.write(resp.content)
+            af.write(audio_content)
         logger.info(f"Audio saved: {output_path}")
         return {"status": "success", "output_path": output_path}
 

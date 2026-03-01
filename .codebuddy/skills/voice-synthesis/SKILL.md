@@ -26,16 +26,25 @@ Seedance 2.0 原生音轨包含环境音效、BGM 和角色配音。**独立 TTS
 
 ## 调用方式
 
-通过 `scripts/tts_generate.py` 脚本调用：
+通过 MCP tool `speech_generate`（`manga-agent` server）调用：
 
-```bash
-python scripts/tts_generate.py --config '{
-  "text": "我决定辞职了。",
-  "voice": "young_male",
-  "output_dir": "projects/proj001/audio",
-  "speed": 1.0,
-  "emotion": "determined"
-}'
+```
+mcp: speech_generate(
+     text="我决定辞职了。",
+     voice="young_male",
+     output_dir="projects/{project_id}/audio",
+     engine="volc", speed=1.0, emotion="determined")
+```
+
+### 视频音轨替换
+生成 TTS 后，用 `video_compose` 替换原视频音轨：
+```
+mcp: video_compose(config_json='{"mode": "replace_audio", "video_path": "videos/s1.mp4", "audio_path": "audio/s1_tts.mp3", "output_path": "videos/s1_override.mp4"}')
+```
+
+### 日志记录
+```
+mcp: generation_log(project_id="...", stage="tts", status="success")
 ```
 
 ## 角色音色映射

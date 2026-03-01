@@ -204,3 +204,43 @@ Shot 级镜头中的 `Involving Characters` 使用归一化边界框：
 - [ ] @Image 引用编号与 image_paths 数组顺序匹配
 
 遵循 `.codebuddy/rules/character-consistency.md` 中的完整检查清单。
+
+## MCP Tool 调用指引
+
+本 Skill 涉及以下 MCP tools（`manga-agent` server）：
+
+### 角色保存到数据库
+```
+mcp: character_save(project_id="...", name="Elsa", description="冰雪女王", 
+     appearance='{"hair": "blonde braid", "dress": "blue"}',
+     reference_images='["character_list/Elsa/best.png"]',
+     style_keywords='["ice queen", "elegant"]')
+```
+
+### 角色列表查询
+```
+mcp: character_list(project_id="...")
+```
+
+### 生成角色参考图（best.png）
+```
+mcp: image_generate(
+     prompt="{style} style, {shot_type} portrait, {appearance}, clean background, high quality",
+     output_dir="projects/{project_id}/character_list/{CharName}",
+     engine="dalle", size="1024x1024")
+```
+
+### 记录设计日志
+```
+mcp: generation_log(project_id="...", stage="design", status="success")
+mcp: project_update_status(project_id="...", status="characters_designing")
+```
+
+### 完整角色设计流程
+1. 读取 `characters.json` 中的角色信息
+2. 构建 `<TOK>` 外观描述 → 写入 `best.txt`
+3. `image_generate` → 生成 `best.png`（去掉 `<TOK>` 前缀）
+4. `image_generate` × N → 生成多角度 `photo_N.png`
+5. `character_save` → 保存角色信息到数据库
+6. 更新 `characters.json` 中的 `design_status` → `designed`
+7. `generation_log` → 记录设计完成

@@ -8,17 +8,28 @@
 - `best.txt` **必须**以 `<TOK>` 开头，使用英文描述角色外观
 - 推荐包含 3-5 张多角度参考图（photo_1.png ~ photo_5.png）
 
-### Seedance 2.0 @ 引用（首要手段）
+### Seedance 2.0 @ 引用（首要手段，强制校验）
 - 每次调用 Seedance 生成视频时，**必须**在 `image_paths` 中传入角色的 `best.png`
-- 在 `video_prompt` 中**必须**用 `@ImageN 作为{角色名}外观` 指定角色参考
+- 在 `video_prompt` 中**必须**用 `@ImageN 作为{角色名}外观参考` 指定角色参考
+- **@Image 编号规则**：
+  - 角色参考图在前，按 `image_paths` 数组顺序编号：@Image1, @Image2, ...
+  - 首帧图（keyframe）**必须**放在 `image_paths` 最后一位
+  - 首帧引用格式：`@ImageN 作为首帧，{动作描述}`
 - 多角色场景中，每个角色都需要独立的 `best.png` 和 @ 引用
-- @Image 编号按 `image_paths` 数组顺序，角色参考图在前，首帧图在最后
+- **校验规则**：video_prompt 中 @Image 引用数量**必须等于** image_paths 数组长度
+- **seedance_mode 选择**：
+  - 有 ≥1 个已设计角色参与 → `multimodal`
+  - 仅场景图/空镜（无角色参考图） → `i2v`
+  - 无任何图片 → `t2v`
 
-### Prompt 工程（辅助手段）
-- 每个分镜图 `image_prompt` 中**必须**包含角色外观描述（来自 `<TOK>` 描述去掉 `<TOK>` 前缀）
+### Prompt 工程（辅助手段，一致性保障）
+- 每个分镜图 `image_prompt` 中**必须**包含角色的**完整**外观描述
+- 外观描述来自 `<TOK>` 描述去掉 `<TOK>` 前缀，**必须完整复制，禁止缩写或改写**
 - `image_prompt` 中**禁止**使用角色名（对应 MovieAgent 的 Coarse Plot 思路）
-- **禁止**改写、缩写或省略外观描述
-- 不同镜头中同一角色的描述文字必须完全一致
+- 不同镜头中同一角色的描述文字**必须完全一致**（逐字匹配）
+- 描述示例：
+  - ❌ 错误：`"a woman in purple dress"`（过于简略）
+  - ✅ 正确：`"a woman with long blonde hair in a braid, wearing a flowing purple-white gradient dress with ice crystal patterns, ice blue eyes, fair porcelain skin, elegant regal posture"`
 
 ### 多角色画面
 - 使用边界框 `[x1, y1, x2, y2]` 定位角色（归一化坐标 [0,1]）

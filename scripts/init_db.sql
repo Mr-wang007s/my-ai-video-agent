@@ -72,3 +72,23 @@ CREATE TABLE IF NOT EXISTS generations (
     duration_ms INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 镜头生成状态表（断点续传）
+CREATE TABLE IF NOT EXISTS shot_status (
+    id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    sub_script TEXT NOT NULL DEFAULT '',
+    scene TEXT NOT NULL DEFAULT '',
+    shot TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    video_path TEXT DEFAULT '',
+    image_path TEXT DEFAULT '',
+    error TEXT DEFAULT '',
+    attempts INTEGER DEFAULT 0,
+    last_attempt_at TEXT,
+    PRIMARY KEY (id, project_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_shot_status_project ON shot_status(project_id);
+CREATE INDEX IF NOT EXISTS idx_shot_status_status ON shot_status(project_id, status);

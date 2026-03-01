@@ -7,7 +7,7 @@
   "properties": {
     "id": {
       "type": "string",
-      "description": "项目唯一标识（8 位短 UUID）"
+      "description": "项目唯一标识（格式：YYYYMMDD_HHMMSS_别名）"
     },
     "name": {
       "type": "string",

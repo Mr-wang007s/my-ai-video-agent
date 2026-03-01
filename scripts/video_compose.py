@@ -42,6 +42,21 @@ def check_ffmpeg() -> bool:
         return False
 
 
+def _get_video_duration(video_path: str) -> float:
+    """获取视频时长（秒）。"""
+    try:
+        cmd = [
+            "ffprobe", "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            video_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        return float(result.stdout.strip())
+    except Exception:
+        return 5.0  # 默认 5 秒
+
+
 def concat_videos(video_paths: list, output_path: str) -> dict:
     """拼接多个视频片段（保留各自的原生音轨）。"""
     if not check_ffmpeg():
@@ -90,6 +105,174 @@ def concat_videos(video_paths: list, output_path: str) -> dict:
 
     except Exception as e:
         return {"status": "failed", "error": f"Video concat failed: {str(e)}"}
+
+
+def concat_videos_with_transitions(segments: list, output_path: str) -> dict:
+    """支持转场效果的视频拼接。
+    
+    根据 narrative-rhythm.md 规范：
+    - 同场景内镜头切换：cut（直切）
+    - 跨场景切换：fade（淡入淡出，0.3-0.5s）
+    - 跨 Sub-Script / 时间跳跃：fade_black（淡出到黑 + 黑到淡入）
+    
+    Args:
+        segments: [
+            {"video_path": "...", "transition": "cut"},
+            {"video_path": "...", "transition": "fade"},
+            {"video_path": "...", "transition": "fade_black"},
+        ]
+        output_path: 输出文件路径
+    
+    第一个 segment 的 transition 字段会被忽略（没有前一个片段可连接）。
+    """
+    if not check_ffmpeg():
+        return {"status": "failed", "error": "FFmpeg not found. Please install FFmpeg."}
+
+    existing = [s for s in segments if os.path.exists(s.get("video_path", ""))]
+    if not existing:
+        return {"status": "failed", "error": "No valid video files found"}
+
+    if len(existing) == 1:
+        import shutil
+        shutil.copy2(existing[0]["video_path"], output_path)
+        return {"status": "success", "output_path": output_path}
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+
+    try:
+        # 检查是否所有转场都是 cut（如果是，走快速路径）
+        has_transitions = any(
+            s.get("transition", "cut") != "cut" 
+            for s in existing[1:]  # 跳过第一个
+        )
+        
+        if not has_transitions:
+            # 全部是 cut，使用原有的快速 concat
+            video_paths = [s["video_path"] for s in existing]
+            return concat_videos(video_paths, output_path)
+
+        # 有转场效果，使用 xfade 滤镜链
+        return _apply_xfade_chain(existing, output_path)
+
+    except Exception as e:
+        return {"status": "failed", "error": f"Transition concat failed: {str(e)}"}
+
+
+def _apply_xfade_chain(segments: list, output_path: str) -> dict:
+    """使用 FFmpeg xfade 滤镜链实现转场效果。
+    
+    策略：逐对连接，每对根据 transition 类型选择不同效果。
+    """
+    temp_files = []
+    
+    try:
+        current_video = segments[0]["video_path"]
+        
+        for i in range(1, len(segments)):
+            next_video = segments[i]["video_path"]
+            transition = segments[i].get("transition", "cut")
+            
+            if i < len(segments) - 1:
+                # 中间步骤，输出到临时文件
+                temp_output = output_path.replace(".mp4", f"_trans_{i}_{int(time.time())}.mp4")
+                temp_files.append(temp_output)
+            else:
+                # 最后一步，输出到最终路径
+                temp_output = output_path
+            
+            if transition == "cut":
+                # 直切：使用 concat
+                result = concat_videos([current_video, next_video], temp_output)
+                if result["status"] != "success":
+                    return result
+            elif transition == "fade":
+                # 淡入淡出：xfade + acrossfade
+                result = _xfade_two_videos(current_video, next_video, temp_output, 
+                                           transition_type="fade", duration=0.5)
+                if result["status"] != "success":
+                    return result
+            elif transition == "fade_black":
+                # 经黑屏的淡入淡出
+                result = _xfade_two_videos(current_video, next_video, temp_output,
+                                           transition_type="fadeblack", duration=0.8)
+                if result["status"] != "success":
+                    return result
+            else:
+                # 未知转场类型，降级为 cut
+                logger.warning(f"Unknown transition '{transition}', falling back to cut")
+                result = concat_videos([current_video, next_video], temp_output)
+                if result["status"] != "success":
+                    return result
+            
+            current_video = temp_output
+        
+        # 清理临时文件（不含最终输出）
+        for tf in temp_files:
+            if os.path.exists(tf) and tf != output_path:
+                try:
+                    os.unlink(tf)
+                except OSError:
+                    pass
+        
+        return {"status": "success", "output_path": output_path}
+    
+    except Exception as e:
+        for tf in temp_files:
+            if os.path.exists(tf):
+                try:
+                    os.unlink(tf)
+                except OSError:
+                    pass
+        return {"status": "failed", "error": f"Transition chain failed: {str(e)}"}
+
+
+def _xfade_two_videos(video1: str, video2: str, output_path: str,
+                       transition_type: str = "fade", duration: float = 0.5) -> dict:
+    """对两个视频应用 xfade 转场 + acrossfade 音频转场。
+    
+    Args:
+        transition_type: FFmpeg xfade 转场类型
+            fade / fadeblack / fadewhite / dissolve / wipeleft / wiperight / slideup
+        duration: 转场时长（秒）
+    """
+    try:
+        # 获取第一个视频的时长来计算 offset
+        vid1_duration = _get_video_duration(video1)
+        offset = max(0, vid1_duration - duration)
+        
+        # 构建 filtergraph：视频 xfade + 音频 acrossfade
+        vfilter = f"[0:v][1:v]xfade=transition={transition_type}:duration={duration}:offset={offset}[vout]"
+        afilter = f"[0:a][1:a]acrossfade=d={duration}:c1=tri:c2=tri[aout]"
+        
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", video1,
+            "-i", video2,
+            "-filter_complex", f"{vfilter};{afilter}",
+            "-map", "[vout]",
+            "-map", "[aout]",
+            "-c:v", "libx264",
+            "-preset", "medium",
+            "-crf", "23",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-ar", "44100",
+            "-ac", "2",
+            output_path
+        ]
+        
+        logger.info(f"Applying {transition_type} transition ({duration}s): {video1} + {video2} -> {output_path}")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        
+        if result.returncode != 0:
+            # xfade 失败时降级为普通拼接
+            logger.warning(f"xfade failed, falling back to concat: {result.stderr[:200]}")
+            return concat_videos([video1, video2], output_path)
+        
+        return {"status": "success", "output_path": output_path}
+    
+    except Exception as e:
+        return {"status": "failed", "error": f"xfade failed: {str(e)}"}
 
 
 def replace_audio(video_path: str, audio_path: str, output_path: str) -> dict:
@@ -231,17 +414,27 @@ def compose_full(config: dict) -> dict:
     temp_files = []
 
     try:
-        # Step 1: 拼接视频片段（Seedance 2.0 视频自带音轨，直接拼接）
+        # Step 1: 拼接视频片段（支持转场效果）
         segments = config.get("segments", [])
-        video_paths = [s["video_path"] for s in segments if "video_path" in s]
-
-        if not video_paths:
+        if not segments:
             return {"status": "failed", "error": "No video segments provided"}
+
+        # 过滤掉不存在的视频
+        valid_segments = [s for s in segments if os.path.exists(s.get("video_path", ""))]
+        if not valid_segments:
+            return {"status": "failed", "error": "No valid video files found"}
 
         concat_output = os.path.join(output_dir, f"_concat_{int(time.time())}.mp4")
         temp_files.append(concat_output)
 
-        concat_result = concat_videos(video_paths, concat_output)
+        # 检查是否有转场配置
+        has_transitions = any("transition" in s for s in valid_segments)
+        if has_transitions:
+            concat_result = concat_videos_with_transitions(valid_segments, concat_output)
+        else:
+            video_paths = [s["video_path"] for s in valid_segments]
+            concat_result = concat_videos(video_paths, concat_output)
+
         if concat_result["status"] != "success":
             return concat_result
 

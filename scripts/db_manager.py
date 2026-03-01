@@ -34,6 +34,8 @@ def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 
@@ -44,7 +46,7 @@ def init_db(force: bool = False):
         sql = f.read()
     conn = get_connection()
     if force:
-        tables = ["generations", "assets", "characters", "storyboards", "scripts", "projects"]
+        tables = ["shot_status", "generations", "assets", "characters", "storyboards", "scripts", "projects"]
         for table in tables:
             conn.execute(f"DROP TABLE IF EXISTS {table}")
         logger.info("All tables dropped (force rebuild)")
@@ -236,6 +238,155 @@ def get_project_summary(project_id: str) -> dict:
     }
 
 
+def check_daily_quota(api_type: str = "video", limits: dict = None) -> dict:
+    """检查今日 API 调用次数是否超限。
+
+    Args:
+        api_type: API 类型 (video/image/tts)
+        limits: 自定义限制，默认 {"video": 50, "image": 100, "tts": 500}
+    """
+    if limits is None:
+        limits = {"video": 50, "image": 100, "tts": 500}
+    limit = limits.get(api_type, 999)
+    
+    conn = get_connection()
+    try:
+        today = datetime.now().strftime("%Y-%m-%d")
+        count = conn.execute(
+            "SELECT COUNT(*) FROM generations WHERE stage = ? AND created_at >= ? AND status != 'failed'",
+            (api_type, today)
+        ).fetchone()[0]
+        return {"allowed": count < limit, "used": count, "limit": limit}
+    except Exception as e:
+        logger.warning(f"Quota check failed: {e}, allowing by default")
+        return {"allowed": True, "used": 0, "limit": limit}
+    finally:
+        conn.close()
+
+
+def upsert_shot_status(data: dict) -> dict:
+    """创建或更新镜头状态（用于断点续传）。
+    
+    Args:
+        data: {
+            "project_id": str,
+            "shot_id": str (格式: S{n}_Sc{n}_Shot{n}),
+            "sub_script": str,
+            "scene": str,
+            "shot": str,
+            "status": str (pending/generating/success/failed),
+            "video_path": str (可选),
+            "image_path": str (可选),
+            "error": str (可选)
+        }
+    """
+    conn = get_connection()
+    try:
+        shot_id = data["shot_id"]
+        existing = conn.execute(
+            "SELECT * FROM shot_status WHERE id = ? AND project_id = ?",
+            (shot_id, data["project_id"])
+        ).fetchone()
+        
+        now = datetime.now().isoformat()
+        
+        if existing:
+            attempts = (existing["attempts"] or 0) + (1 if data.get("status") == "failed" else 0)
+            conn.execute(
+                """UPDATE shot_status 
+                   SET status = ?, video_path = ?, image_path = ?, error = ?, 
+                       attempts = ?, last_attempt_at = ?
+                   WHERE id = ? AND project_id = ?""",
+                (data.get("status", existing["status"]),
+                 data.get("video_path", existing["video_path"] or ""),
+                 data.get("image_path", existing["image_path"] or ""),
+                 data.get("error", ""),
+                 attempts, now,
+                 shot_id, data["project_id"])
+            )
+        else:
+            conn.execute(
+                """INSERT INTO shot_status 
+                   (id, project_id, sub_script, scene, shot, status, video_path, image_path, error, attempts, last_attempt_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (shot_id, data["project_id"], data.get("sub_script", ""),
+                 data.get("scene", ""), data.get("shot", ""),
+                 data.get("status", "pending"),
+                 data.get("video_path", ""), data.get("image_path", ""),
+                 data.get("error", ""), 0, now)
+            )
+        
+        conn.commit()
+        return {"status": "success", "shot_id": shot_id}
+    except Exception as e:
+        return {"status": "failed", "error": f"Shot status update failed: {str(e)}"}
+    finally:
+        conn.close()
+
+
+def list_shots_by_status(project_id: str, status_filter: str = "") -> dict:
+    """列出项目的镜头状态。
+    
+    Args:
+        project_id: 项目 ID
+        status_filter: 可选状态过滤 (pending/generating/success/failed)，空则列出全部
+    """
+    conn = get_connection()
+    try:
+        if status_filter:
+            rows = conn.execute(
+                "SELECT * FROM shot_status WHERE project_id = ? AND status = ? ORDER BY id",
+                (project_id, status_filter)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM shot_status WHERE project_id = ? ORDER BY id",
+                (project_id,)
+            ).fetchall()
+        
+        shots = [dict(r) for r in rows]
+        summary = {}
+        for s in shots:
+            st = s["status"]
+            summary[st] = summary.get(st, 0) + 1
+        
+        return {"status": "success", "shots": shots, "summary": summary, "total": len(shots)}
+    except Exception as e:
+        return {"status": "failed", "error": f"Shot list failed: {str(e)}"}
+    finally:
+        conn.close()
+
+
+def batch_init_shots(project_id: str, shots: list) -> dict:
+    """批量初始化镜头状态（从 script_breakdown.json 解析后调用）。
+    
+    Args:
+        shots: [{"shot_id": "S1_Sc1_Shot1", "sub_script": "Sub-Script 1", "scene": "Scene 1", "shot": "Shot 1"}, ...]
+    """
+    conn = get_connection()
+    try:
+        for shot in shots:
+            existing = conn.execute(
+                "SELECT id FROM shot_status WHERE id = ? AND project_id = ?",
+                (shot["shot_id"], project_id)
+            ).fetchone()
+            if not existing:
+                conn.execute(
+                    """INSERT INTO shot_status 
+                       (id, project_id, sub_script, scene, shot, status, attempts, last_attempt_at)
+                       VALUES (?, ?, ?, ?, ?, 'pending', 0, ?)""",
+                    (shot["shot_id"], project_id, shot.get("sub_script", ""),
+                     shot.get("scene", ""), shot.get("shot", ""),
+                     datetime.now().isoformat())
+                )
+        conn.commit()
+        return {"status": "success", "initialized": len(shots)}
+    except Exception as e:
+        return {"status": "failed", "error": f"Batch init failed: {str(e)}"}
+    finally:
+        conn.close()
+
+
 ACTIONS = {
     "init_db": lambda d: init_db(force=d.get("force", False)),
     "create_project": create_project,
@@ -249,6 +400,10 @@ ACTIONS = {
     "save_asset": save_asset,
     "list_assets": lambda d: list_assets(d["project_id"], d.get("type")),
     "log_generation": log_generation,
+    "check_daily_quota": lambda d: check_daily_quota(d.get("api_type", "video")),
+    "upsert_shot_status": upsert_shot_status,
+    "list_shots": lambda d: list_shots_by_status(d["project_id"], d.get("status", "")),
+    "batch_init_shots": lambda d: batch_init_shots(d["project_id"], d["shots"]),
 }
 
 

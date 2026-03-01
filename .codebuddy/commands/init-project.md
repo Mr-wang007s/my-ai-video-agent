@@ -13,30 +13,29 @@ description: "Step 1: 初始化漫剧项目 — 创建项目、生成目录结�
    - `resolution`：分辨率（默认 1080p）
    - `language`：语言（默认 zh）
 
-2. **创建项目**：
-   ```bash
-   python scripts/db_manager.py --action create_project --data '{"name": "{name}", "description": "{description}", "style": "{style}", "config": {"target_duration": {duration}, "resolution": "{resolution}", "language": "{language}"}}'
+2. **初始化数据库**（首次使用时）：
+   ```
+   MCP tool: project_init_db()
    ```
 
-3. **补充目录结构**：在项目目录下创建新增的子目录：
-   ```bash
-   mkdir -p projects/{project_id}/character_list
-   mkdir -p projects/{project_id}/final
+3. **创建项目**：
+   ```
+   MCP tool: project_create(name, description, style, config='{"target_duration": N, "resolution": "1080p", "language": "zh"}')
    ```
 
-4. **验证**：确认返回 `project_id` 且目录结构已创建：
-   - `projects/{project_id}/images/characters/`（兼容旧版）
+4. **验证**：确认返回 `project_id`（格式 `YYYYMMDD_HHMMSS_别名`），且目录结构已创建：
+   - `projects/{project_id}/images/characters/`
    - `projects/{project_id}/images/shots/`
    - `projects/{project_id}/videos/`
    - `projects/{project_id}/audio/`
-   - `projects/{project_id}/character_list/`（MovieAgent 角色资产库）
-   - `projects/{project_id}/final/`（最终成片输出）
+   - `projects/{project_id}/character_list/`
+   - `projects/{project_id}/final/`
 
-5. **告知用户**：返回 project_id，提示用户下一步：
+5. **告知用户**：返回 project_id，提示下一步：
    - 准备好剧本/小说 `.txt` 文件
    - 执行 `/import-script` 导入剧本
 
 ## 注意事项
 
 - 项目初始状态为 `draft`
-- project_id 为 8 位短 UUID，后续所有步骤都需要用到
+- project_id 格式为 `YYYYMMDD_HHMMSS_别名`，后续所有步骤都需要用到

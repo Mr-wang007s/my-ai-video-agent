@@ -9,7 +9,7 @@ description: 分镜设计与镜头语言指南。当需要将剧本场景拆解�
 
 ## 在 MovieAgent 流水线中的位置
 
-分镜设计知识主要服务于 **Step 4c: Shot Creator Agent**（镜头创建），具体体现在：
+分镜设计知识主要服务于 **Step 4c: 镜头创建（ShotPlotCreateCoT）**，具体体现在：
 
 - **Shot Type 选择**：根据叙事需要选择合适的镜头类型
 - **Camera Movement 设计**：运镜方式匹配情绪和动作
@@ -171,6 +171,37 @@ Seedance 2.0 支持 **4/5/10/15 秒**四档时长，`Duration` 必须为这四�
 | 有角色 best.png 参考图 | `multimodal` |
 | 仅场景图/空镜 | `i2v` |
 | 无首帧图 | `t2v` |
+
+## MCP Tool 调用指引
+
+分镜设计的 LLM CoT 推理由主对话直接执行，**MCP tool 仅用于记录日志和更新状态**：
+
+### 记录每个 Shot 的生成日志
+
+```
+MCP tool: generation_log(
+  project_id="...",
+  stage="breakdown",
+  input_params='{"sub_script": "...", "scene": "...", "shot": "..."}',
+  output_path="projects/{project_id}/script_breakdown.json",
+  status="success",
+  error_msg=null
+)
+```
+
+### 更新项目状态
+
+```
+MCP tool: project_update_status(project_id="...", status="script_broken")
+```
+
+### 查询角色信息（用于 Involving Characters）
+
+```
+MCP tool: character_list(project_id="...")
+```
+
+> **注意**：三版本 Prompt 生成（image_prompt / video_prompt / audio_prompt）是 CoT 推理的产物，直接写入 `script_breakdown.json`，不需要通过 MCP tool。
 
 ## 输出格式
 

@@ -30,6 +30,7 @@ import base64
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
+from retry_util import with_retry, check_response, RetryableError, NonRetryableError
 
 load_dotenv()
 
@@ -45,6 +46,31 @@ ARK_BASE_URL = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/
 SEEDANCE_MODEL = os.getenv("SEEDANCE_MODEL", "doubao-seedance-2-0-pro-250224")
 
 
+def _compress_image(img_path: str, max_dimension: int = 1024, max_size_bytes: int = 2 * 1024 * 1024) -> tuple:
+    """压缩图片到合理大小，避免 API payload 过大。"""
+    from PIL import Image
+    import io
+
+    img = Image.open(img_path)
+    # 缩放到最大尺寸
+    if max(img.size) > max_dimension:
+        img.thumbnail((max_dimension, max_dimension), Image.LANCZOS)
+
+    # 先尝试 PNG
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG", optimize=True)
+    if buffer.tell() <= max_size_bytes:
+        return buffer.getvalue(), "image/png"
+
+    # PNG 过大则转 JPEG
+    buffer = io.BytesIO()
+    if img.mode == "RGBA":
+        img = img.convert("RGB")
+    img.save(buffer, format="JPEG", quality=85)
+    return buffer.getvalue(), "image/jpeg"
+
+
+@with_retry(max_retries=3, delays=(1, 3, 10))
 def _upload_file_to_ark(file_path: str) -> dict:
     """上传本地文件到火山方舟，获取 file_id 用于引用。
 
@@ -65,11 +91,12 @@ def _upload_file_to_ark(file_path: str) -> dict:
                 data={"purpose": "video_generation"},
                 timeout=60
             )
-        resp.raise_for_status()
-        data = resp.json()
+        data = check_response(resp).json()
         return {"file_id": data.get("id", ""), "url": data.get("url", "")}
+    except (RetryableError, NonRetryableError):
+        raise
     except Exception as e:
-        return {"error": f"File upload failed: {str(e)}"}
+        raise RetryableError(f"File upload failed: {str(e)}")
 
 
 def _build_content(config: dict) -> list:
@@ -90,10 +117,8 @@ def _build_content(config: dict) -> list:
         if img_path.startswith("http"):
             content.append({"type": "image_url", "image_url": {"url": img_path}})
         elif os.path.exists(img_path):
-            with open(img_path, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode("utf-8")
-            ext = Path(img_path).suffix.lstrip(".").lower()
-            mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}.get(ext, "image/png")
+            img_bytes, mime = _compress_image(img_path)
+            b64 = base64.b64encode(img_bytes).decode("utf-8")
             content.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
 
     # 添加视频引用（最多 3 个）
@@ -188,14 +213,17 @@ def generate_video(config: dict) -> dict:
                      f"has_audio_prompt={'audio_prompt' in config}")
 
         # 提交视频生成任务
-        resp = requests.post(
-            f"{ARK_BASE_URL}/video/generations",
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-        resp.raise_for_status()
-        task_data = resp.json()
+        @with_retry(max_retries=3, delays=(1, 3, 10))
+        def _submit_task():
+            resp = requests.post(
+                f"{ARK_BASE_URL}/video/generations",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            return check_response(resp).json()
+
+        task_data = _submit_task()
         task_id = task_data.get("id", "") or task_data.get("task_id", "")
 
         if not task_id:
@@ -215,6 +243,12 @@ def generate_video(config: dict) -> dict:
                     headers={"Authorization": f"Bearer {ARK_API_KEY}"},
                     timeout=15
                 )
+                # 分类轮询错误：4xx 立即终止，5xx 继续重试
+                if not status_resp.ok:
+                    if 400 <= status_resp.status_code < 500:
+                        return {"status": "failed", "error": f"Poll returned HTTP {status_resp.status_code}: {status_resp.text[:200]}", "task_id": task_id}
+                    logger.warning(f"  Poll HTTP {status_resp.status_code} (attempt {attempt + 1}), retrying...")
+                    continue
                 status_data = status_resp.json()
             except Exception as poll_err:
                 logger.warning(f"  Poll error (attempt {attempt + 1}): {poll_err}")
@@ -246,9 +280,15 @@ def generate_video(config: dict) -> dict:
                     video_name = f"{shot_id + '_' if shot_id else ''}seedance_{prompt_hash}_{int(time.time())}.mp4"
                     output_path = os.path.join(output_dir, video_name)
 
-                    video_resp = requests.get(video_url, timeout=120)
+                    @with_retry(max_retries=3, delays=(1, 3, 10))
+                    def _download_video():
+                        video_resp = requests.get(video_url, timeout=120)
+                        check_response(video_resp)
+                        return video_resp.content
+
+                    video_content = _download_video()
                     with open(output_path, "wb") as vf:
-                        vf.write(video_resp.content)
+                        vf.write(video_content)
 
                     file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
                     logger.info(f"Video saved: {output_path} ({file_size_mb:.1f}MB)")
