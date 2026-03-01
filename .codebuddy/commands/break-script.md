@@ -5,7 +5,7 @@ description: "Step 4: 三层 CoT 分镜拆解 — MovieAgent 核心，Sub-Script
 
 ## 前置条件
 
-- 项目状态为 `characters_extracted` 或 `characters_designing`
+- 项目状态为 `characters_extracted` 或 `characters_designed`
 - `projects/{project_id}/script_synopsis.json` 已存在
 - `projects/{project_id}/characters.json` 已存在
 
@@ -35,7 +35,7 @@ use_skill("storyboard-design")
 
 8. 使用 Layer 3 Prompt 模板，双层循环：Sub-Script → Scene
 9. 每个 Shot 包含完整字段（双版本描述、三版本 Prompt、边界框）
-10. Duration 为 4/5/10/15 之一
+10. Duration 推荐为 4/5/10/15 秒（对齐主流视频生成平台的时长档位）
 11. 嵌套写入 Shot Annotation
 
 ### 最终汇总
@@ -48,11 +48,11 @@ use_skill("storyboard-design")
 
 13. **向用户展示概览**：总 Sub-Script/Scene/Shot 数、预估总时长、角色出场统计
 
-14. **提示下一步**：`/generate-video`
+14. **提示下一步**：`/export-guide`
 
 ## 注意事项
 
 - 三层拆解由主对话直接执行 CoT 推理，每层独立上下文
 - 遵循 `cot-reasoning` 规则，禁止跳过推理
 - 约需 1 + N + M 次 LLM 推理调用
-- `script_breakdown.json` 是后续所有步骤的核心输入
+- `script_breakdown.json` 是后续导出的核心数据来源

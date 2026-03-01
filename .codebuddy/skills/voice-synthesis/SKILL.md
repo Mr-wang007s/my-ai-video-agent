@@ -1,51 +1,19 @@
 ---
 name: voice-synthesis
-description: 语音合成技术指南。当需要为漫剧角色生成 TTS 配音（Seedance 原生音频不佳时的 Override）、控制情感语音、实现多角色配音时，应使用此 Skill。
+description: 语音合成技术指南。当需要为漫剧角色规划配音方案、设计 audio_prompt 中的语音描述时，应使用此 Skill。
 ---
 
 # 语音合成
 
-提供 TTS 配音的技术方案，用于 Seedance 2.0 原生音频不满足要求时的替换。
+提供漫剧配音的规划方案，用于指导在剪映等工具中进行手动配音。
 
 ## 适用场景
 
-Seedance 2.0 原生音轨包含环境音效、BGM 和角色配音。**独立 TTS 仅在以下情况使用**：
-1. 对白发音不清晰
-2. 需要精确控制某句台词的语气和节奏
-3. 角色音色与设定严重不符
-4. 需要特定方言或口音
-5. 长段旁白需要专业播音腔
-
-## TTS 引擎选型
-
-| 引擎 | 优势 | 成本 | 推荐场景 |
-|------|------|------|----------|
-| 火山引擎 TTS | 中文语音质量高，音色丰富 | ~0.01 元/千字 | 首选，中文漫剧 TTS Override |
-| Azure TTS | 多语言、SSML 控制精细 | ~0.1 元/千字 | 多语言、精细控制 |
-| ElevenLabs | 音色克隆、情感表现力强 | 较高 | 英文或特殊音色 |
-
-## 调用方式
-
-通过 MCP tool `speech_generate`（`manga-agent` server）调用：
-
-```
-mcp: speech_generate(
-     text="我决定辞职了。",
-     voice="young_male",
-     output_dir="projects/{project_id}/audio",
-     engine="volc", speed=1.0, emotion="determined")
-```
-
-### 视频音轨替换
-生成 TTS 后，用 `video_compose` 替换原视频音轨：
-```
-mcp: video_compose(config_json='{"mode": "replace_audio", "video_path": "videos/s1.mp4", "audio_path": "audio/s1_tts.mp3", "output_path": "videos/s1_override.mp4"}')
-```
-
-### 日志记录
-```
-mcp: generation_log(project_id="...", stage="tts", status="success")
-```
+配音在最终合成阶段（剪映）手动完成。本 Skill 帮助规划：
+1. `audio_prompt` 中的对白描述格式
+2. 角色音色选型
+3. 情感语音控制
+4. 多角色配音策略
 
 ## 角色音色映射
 
@@ -95,23 +63,37 @@ mcp: generation_log(project_id="...", stage="tts", status="success")
 | 旁白叙述 | 使用 narrator 音色 + 均匀语速 |
 | 呐喊/吼叫 | 高音量 + 快速 |
 
-## TTS Override 工作流程
+## 推荐配音工具
 
-1. 读取 `projects/{project_id}/video_manifest.json`
-2. 筛选 `needs_tts_override: true` 的镜头
-3. 读取 `projects/{project_id}/script.json` 获取对应对白
-4. 匹配 `characters.json` 中的音色设置
-5. 逐条生成 TTS 音频
-6. 使用 FFmpeg 替换对应视频的音轨
-7. 输出到 `projects/{project_id}/audio/`
+| 工具 | 优势 | 适用场景 |
+|------|------|----------|
+| 剪映内置配音 | 免费、中文效果好 | 首选，大部分场景 |
+| 剪映 AI 克隆 | 定制音色 | 主角专属音色 |
+| ElevenLabs | 音色克隆强、情感表现力 | 英文或高要求场景 |
+| 微软 Azure TTS | SSML 精细控制 | 需要精确语调控制 |
 
-## 输出规范
+## 配音工作流（剪映）
 
-- 音频格式：MP3（默认）或 WAV
-- 采样率：16kHz 以上
-- 文件命名：`{scene_id}_{dialogue_index}_{character_id}.mp3`
-- 生成清单文件 `projects/{project_id}/audio/manifest.json`
+1. 打开导出的 `storyboard_guide.md`
+2. 按镜头顺序浏览 `audio_prompt`
+3. 在剪映中为每个镜头：
+   - 添加对应的背景音效/环境音
+   - 使用 AI 配音功能录入对白（参考 audio_prompt 中的语气描述）
+   - 添加 BGM（参考 audio_prompt 中的音乐描述）
+4. 调整音量平衡：对白 > 音效 > BGM
+5. 确保对白时间与画面动作同步
 
-## 成本与限制
+## audio_prompt 编写规范
 
-遵循 `.codebuddy/rules/api-usage.md` 中的成本控制策略。TTS 仅作为 Override 手段使用，整体调用量大幅减少。
+在 Step 4c（镜头创建 CoT）中编写 `audio_prompt` 时：
+
+```
+{环境音效}, {动作音效}, {角色台词+语气}, {BGM描述}
+```
+
+**对白格式**：`{性别/年龄描述}{语气描述}说：'{台词内容}'`
+
+**示例**：
+```
+空旷的城堡大厅，冰晶凝结的清脆声，年轻女性惊异地说：'那个声音……我又听到了'，空灵的钢琴BGM缓缓响起
+```

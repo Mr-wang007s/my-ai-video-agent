@@ -10,7 +10,6 @@ description: "Step 1: 初始化漫剧项目 — 创建项目、生成目录结�
    - `description`：项目描述
    - `style`：画面风格（manga/anime/comic/realistic/watercolor/pixel，默认 manga）
    - `target_duration`：目标时长秒数（默认 120）
-   - `resolution`：分辨率（默认 1080p）
    - `language`：语言（默认 zh）
 
 2. **初始化数据库**（首次使用时）：
@@ -20,16 +19,12 @@ description: "Step 1: 初始化漫剧项目 — 创建项目、生成目录结�
 
 3. **创建项目**：
    ```
-   MCP tool: project_create(name, description, style, config='{"target_duration": N, "resolution": "1080p", "language": "zh"}')
+   MCP tool: project_create(name, description, style, config='{"target_duration": N, "language": "zh"}')
    ```
 
 4. **验证**：确认返回 `project_id`（格式 `YYYYMMDD_HHMMSS_别名`），且目录结构已创建：
-   - `projects/{project_id}/images/characters/`
-   - `projects/{project_id}/images/shots/`
-   - `projects/{project_id}/videos/`
-   - `projects/{project_id}/audio/`
    - `projects/{project_id}/character_list/`
-   - `projects/{project_id}/final/`
+   - `projects/{project_id}/exports/`
 
 5. **告知用户**：返回 project_id，提示下一步：
    - 准备好剧本/小说 `.txt` 文件
@@ -39,3 +34,4 @@ description: "Step 1: 初始化漫剧项目 — 创建项目、生成目录结�
 
 - 项目初始状态为 `draft`
 - project_id 格式为 `YYYYMMDD_HHMMSS_别名`，后续所有步骤都需要用到
+- 步骤 1-5 不需要任何 API Key

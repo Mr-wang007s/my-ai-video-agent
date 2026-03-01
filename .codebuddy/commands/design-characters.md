@@ -1,11 +1,11 @@
 ---
 name: design-characters
-description: "Step 3b: 角色设计 — 按需逐个设计角色，生成 character_list/ 资产目录。支持参数化调用。"
+description: "Step 3b: 角色设计 — 构建 <TOK> 描述，创建 character_list/ 文本资产。用户自行在 Gemini 等平台生成参考图。"
 ---
 
 ## 前置条件
 
-- 项目状态为 `characters_extracted` 或 `characters_designing`
+- 项目状态为 `characters_extracted`
 - `projects/{project_id}/characters.json` 已存在
 
 ## 必须加载的 Skill
@@ -33,28 +33,23 @@ use_skill("character-consistency")
 **执行**：
 1. 验证前置条件
 2. 读取 `characters.json`，找到目标角色
-3. 更新项目状态为 `characters_designing`：
-   ```
-   MCP tool: project_update_status(project_id, status="characters_designing")
-   ```
-4. 构建 `<TOK>` 描述（遵循 character-consistency skill 规范）
-5. 生成 best.png：
-   ```
-   MCP tool: image_generate(prompt="...", output_dir="projects/{project_id}/character_list/{CharName}", engine="dalle")
-   ```
-6. 生成多角度参考图（3-5 张）
-7. 写入 best.txt（`<TOK>` 描述）
-8. 可选生成语音样本：
-   ```
-   MCP tool: speech_generate(text="...", voice="...", output_dir="...")
-   ```
-9. 更新数据库：
+3. 构建 `<TOK>` 英文外观描述（遵循 character-consistency skill 规范）
+4. 创建 `character_list/{CharName}/` 目录
+5. 写入 `best.txt`（`<TOK>` 开头的英文描述）
+6. 生成用于 Gemini 的 Prompt，供用户手动生成 best.png：
+   - 输出完整的英文 Prompt（含风格前缀和 negative prompt）
+   - 建议用户在 Gemini 生成后，将最佳图片保存为 `best.png`
+   - 建议额外生成 3-5 张多角度参考图（photo_1.png ~ photo_5.png）
+7. 更新数据库：
    ```
    MCP tool: character_save(project_id, name, description, appearance, reference_images, style_keywords)
    MCP tool: generation_log(project_id, stage="design", status="success")
    ```
-10. 更新 `characters.json` 中的 `design_status` → `designed`
-11. 验证产出：best.png 存在、best.txt 使用 `<TOK>` 开头、≥3 张 photo_N.png
+8. 更新 `characters.json` 中的 `design_status` → `designed`
+9. 更新项目状态：
+   ```
+   MCP tool: project_update_status(project_id, status="characters_designed")
+   ```
 
 ### 方式 3: 批量设计 — all
 
@@ -62,7 +57,7 @@ use_skill("character-consistency")
 /design-characters all
 ```
 
-逐个设计所有 `design_status == "extracted"` 的角色，每完成一个展示进度。
+逐个为所有 `design_status == "extracted"` 的角色构建 `<TOK>` 描述和 Prompt。
 
 ## 角色目录命名规则
 
@@ -71,5 +66,6 @@ use_skill("character-consistency")
 
 ## 注意事项
 
-- 每个角色约消耗 3-5 次图像 API 调用
-- 建议先设计主要角色，次要角色按需设计
+- 角色设计为纯文本操作，不调用任何 API
+- 用户需自行在 Gemini 等平台生成参考图并放入 `character_list/{CharName}/` 目录
+- `best.png` 是可选的，但对后续分镜拆解中的角色描述一致性有帮助

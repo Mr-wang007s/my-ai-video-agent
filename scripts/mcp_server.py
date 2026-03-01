@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MovieAgent MCP Server — 统一暴露所有漫剧流水线工具。
+"""MCP Server — 漫剧流水线工具（脚本分析 + 分镜导出）。
 
 通过 MCP stdio 协议暴露以下工具组：
   - 项目管理：init_db, create_project, list_projects, get_project, update_status, get_project_summary
@@ -7,25 +7,18 @@
   - 角色管理：save_character, list_characters
   - 资产管理：save_asset, list_assets
   - 生成记录：log_generation
-  - 图像生成：generate_image
-  - 视频生成：generate_video (Seedance 2.0)
-  - TTS 语音：generate_speech
-  - 视频合成：compose_video, replace_audio, add_subtitles
+  - 分镜导出：export_storyboard_markdown, export_storyboard_csv
 
 Usage (stdio):
     python scripts/mcp_server.py
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
 # 确保能导入同目录下的模块
 sys.path.insert(0, str(Path(__file__).parent))
-
-from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent.parent / ".env")
 
 from mcp.server.fastmcp import FastMCP
 
@@ -35,34 +28,15 @@ from db_manager import (
     update_project_status, save_script, save_storyboard,
     save_character, save_asset, list_assets, log_generation,
     get_project_summary, get_connection,
-    upsert_shot_status, list_shots_by_status, batch_init_shots, check_daily_quota
 )
 from import_script import import_script, get_stats, get_text
-from image_generate import generate_image_dalle, generate_image_sd, generate_image_seedream
-from seedance_generate import generate_video as _seedance_generate
-from tts_generate import generate_speech_volc, generate_speech_azure
-from video_compose import compose_full, concat_videos, replace_audio, overlay_bgm, add_subtitles
+from export_storyboard import export_markdown, export_csv
 
 # ─── 创建 MCP Server ───────────────────────────────────────────
 mcp = FastMCP("manga-agent")
 
 PROJECT_ROOT = Path(__file__).parent.parent
 PROJECTS_DIR = PROJECT_ROOT / "projects"
-
-
-def _check_quota(api_type: str, limit: int) -> dict:
-    """检查今日 API 调用次数。"""
-    try:
-        conn = get_connection()
-        today = __import__('datetime').date.today().isoformat()
-        count = conn.execute(
-            "SELECT COUNT(*) FROM generations WHERE stage = ? AND created_at >= ? AND status != 'failed'",
-            (api_type, today)
-        ).fetchone()[0]
-        conn.close()
-        return {"allowed": count < limit, "used": count, "limit": limit}
-    except Exception:
-        return {"allowed": True, "used": 0, "limit": limit}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -84,7 +58,7 @@ def project_create(name: str, description: str = "", style: str = "manga", confi
         name: 项目名称（如"冰雪奇缘2漫剧版"）
         description: 项目描述
         style: 视觉风格（manga/anime/realistic/watercolor）
-        config: JSON 字符串，额外配置（如 {"target_duration": 120, "resolution": "1080p"}）
+        config: JSON 字符串，额外配置（如 {"target_duration": 120}）
     """
     data = {
         "name": name,
@@ -114,8 +88,8 @@ def project_get(project_id: str) -> str:
 def project_update_status(project_id: str, status: str) -> str:
     """更新项目状态。
     
-    状态流转：draft → imported → characters_extracted → characters_designing 
-              → script_broken → generating → generated → composing → completed
+    状态流转：draft → imported → characters_extracted → characters_designed
+              → script_broken → exported
     """
     result = update_project_status(project_id, status)
     return json.dumps(result, ensure_ascii=False)
@@ -221,8 +195,8 @@ def asset_save(project_id: str, asset_type: str, name: str, file_path: str,
     
     Args:
         project_id: 项目 ID
-        asset_type: 资产类型（image/video/audio）
-        name: 资产名称（如 "S1_Sc1_Shot1"）
+        asset_type: 资产类型（image/reference/export）
+        name: 资产名称
         file_path: 文件路径
         metadata: JSON 字符串，额外元数据
     """
@@ -243,7 +217,7 @@ def asset_list(project_id: str, asset_type: str = "") -> str:
     
     Args:
         project_id: 项目 ID
-        asset_type: 可选过滤（image/video/audio），为空则列出全部
+        asset_type: 可选过滤（image/reference/export），为空则列出全部
     """
     result = list_assets(project_id, asset_type or None)
     return json.dumps(result, ensure_ascii=False, default=str)
@@ -256,11 +230,11 @@ def asset_list(project_id: str, asset_type: str = "") -> str:
 @mcp.tool()
 def generation_log(project_id: str, stage: str, status: str = "success",
                    error: str = "", cost: float = 0, duration_ms: int = 0) -> str:
-    """记录一次生成操作日志。
+    """记录一次操作日志。
     
     Args:
         project_id: 项目 ID
-        stage: 阶段（import/extract/design/breakdown/image/video/tts/compose）
+        stage: 阶段（import/extract/design/breakdown/export）
         status: 状态（pending/running/success/failed）
         error: 错误信息
         cost: 费用（元）
@@ -279,191 +253,32 @@ def generation_log(project_id: str, stage: str, status: str = "success",
 
 
 # ═══════════════════════════════════════════════════════════════
-# 图像生成工具
+# 分镜导出工具
 # ═══════════════════════════════════════════════════════════════
 
 @mcp.tool()
-def image_generate(prompt: str, output_dir: str, engine: str = "seedream",
-                   size: str = "1024x1024", quality: str = "standard",
-                   style: str = "vivid") -> str:
-    """调用 Seedream 5.0 / DALL-E / Stable Diffusion 生成图像。
+def export_storyboard_markdown(project_id: str) -> str:
+    """导出分镜制作指南（Markdown 格式）。
     
-    Args:
-        prompt: 图像生成提示词（英文）
-        output_dir: 输出目录
-        engine: 引擎（seedream/dalle/sd，默认 seedream）
-        size: 图像尺寸（1024x1024, 1024x1792, 1792x1024 等）
-        quality: 质量（standard/hd，仅 DALL-E）
-        style: 风格（vivid/natural，仅 DALL-E）
-    """
-    # 成本预检查
-    quota = _check_quota("image", 100)
-    if not quota["allowed"]:
-        return json.dumps({"status": "failed", "error": f"Image daily quota exceeded: {quota['used']}/{quota['limit']}"}, ensure_ascii=False)
-
-    if engine == "sd":
-        result = generate_image_sd(prompt, output_dir, size=size)
-    elif engine == "dalle":
-        result = generate_image_dalle(prompt, output_dir, size=size, quality=quality, style=style)
-    else:
-        seedream_size = size if size != "1024x1024" else "2K"
-        result = generate_image_seedream(prompt, output_dir, size=seedream_size)
-    return json.dumps(result, ensure_ascii=False)
-
-
-# ═══════════════════════════════════════════════════════════════
-# Seedance 2.0 视频生成工具
-# ═══════════════════════════════════════════════════════════════
-
-@mcp.tool()
-def video_generate(prompt: str, output_dir: str, mode: str = "t2v",
-                   duration: int = 5, resolution: str = "1080p",
-                   ratio: str = "16:9", audio_prompt: str = "",
-                   image_paths: str = "[]", shot_id: str = "") -> str:
-    """调用 Seedance 2.0 API 生成视频（音视频联合生成）。
+    从 script_breakdown.json 和 characters.json 生成人类可读的制作指南，
+    包含每个镜头的 Prompt（适用于 Gemini/可灵/剪映）、运镜、时长等信息。
     
-    Args:
-        prompt: 视频生成提示词
-        output_dir: 输出目录
-        mode: 模式（t2v=文生视频, i2v=图生视频, multimodal=多模态）
-        duration: 时长秒数（4/5/10/15）
-        resolution: 分辨率（720p/1080p）
-        ratio: 宽高比（16:9/9:16/1:1/4:3/3:4/21:9）
-        audio_prompt: 音频提示词（启用音视频联合生成）
-        image_paths: JSON 字符串，图片路径列表（i2v/multimodal 模式必填）
-        shot_id: 镜头 ID，用于输出文件命名
+    输出到 projects/{project_id}/exports/storyboard_guide.md
     """
-    # 成本预检查
-    quota = _check_quota("video", 50)
-    if not quota["allowed"]:
-        return json.dumps({"status": "failed", "error": f"Seedance daily quota exceeded: {quota['used']}/{quota['limit']}"}, ensure_ascii=False)
-
-    config = {
-        "mode": mode,
-        "prompt": prompt,
-        "output_dir": output_dir,
-        "duration": duration,
-        "resolution": resolution,
-        "ratio": ratio,
-        "shot_id": shot_id,
-    }
-    if audio_prompt:
-        config["audio_prompt"] = audio_prompt
-    paths = json.loads(image_paths) if isinstance(image_paths, str) else image_paths
-    if paths:
-        config["image_paths"] = paths
-
-    result = _seedance_generate(config)
-    return json.dumps(result, ensure_ascii=False)
-
-
-# ═══════════════════════════════════════════════════════════════
-# TTS 语音合成工具
-# ═══════════════════════════════════════════════════════════════
-
-@mcp.tool()
-def speech_generate(text: str, voice: str, output_dir: str,
-                    engine: str = "volc", speed: float = 1.0,
-                    emotion: str = "neutral") -> str:
-    """调用 TTS API 将文本转为语音。
-    
-    Args:
-        text: 要合成的文本
-        voice: 音色（narrator/young_male/young_female/mature_male/mature_female/child）
-        output_dir: 输出目录
-        engine: TTS 引擎（volc=火山引擎, azure=Azure TTS）
-        speed: 语速（0.5~2.0）
-        emotion: 情绪（neutral/happy/sad/angry/fearful/surprised/disgusted）
-    """
-    kwargs = {"speed": speed, "emotion": emotion}
-    if engine == "azure":
-        result = generate_speech_azure(text, voice, output_dir, **kwargs)
-    else:
-        result = generate_speech_volc(text, voice, output_dir, **kwargs)
-    return json.dumps(result, ensure_ascii=False)
-
-
-# ═══════════════════════════════════════════════════════════════
-# 视频合成工具
-# ═══════════════════════════════════════════════════════════════
-
-@mcp.tool()
-def video_compose(config_json: str) -> str:
-    """视频合成（拼接+BGM+字幕）。
-    
-    Args:
-        config_json: JSON 字符串，完整配置。支持三种模式：
-            - compose: {"mode": "compose", "segments": [{"video_path": "..."}], "output_path": "...", "subtitles": [...]}
-            - replace_audio: {"mode": "replace_audio", "video_path": "...", "audio_path": "...", "output_path": "..."}
-            - overlay_bgm: {"mode": "overlay_bgm", "video_path": "...", "bgm_path": "...", "output_path": "...", "bgm_volume": 0.3}
-    """
-    config = json.loads(config_json) if isinstance(config_json, str) else config_json
-    result = compose_full(config)
-    return json.dumps(result, ensure_ascii=False)
-
-
-# ═══════════════════════════════════════════════════════════════
-# 镜头状态管理工具（断点续传）
-# ═══════════════════════════════════════════════════════════════
-
-@mcp.tool()
-def shot_update_status(project_id: str, shot_id: str, status: str,
-                       video_path: str = "", image_path: str = "",
-                       error: str = "") -> str:
-    """更新单个镜头的生成状态（断点续传）。
-    
-    Args:
-        project_id: 项目 ID
-        shot_id: 镜头 ID（格式：S{n}_Sc{n}_Shot{n}）
-        status: 状态（pending/generating/success/failed）
-        video_path: 生成的视频路径（success 时填写）
-        image_path: 生成的关键帧图片路径
-        error: 错误信息（failed 时填写）
-    """
-    data = {
-        "project_id": project_id,
-        "shot_id": shot_id,
-        "status": status,
-        "video_path": video_path,
-        "image_path": image_path,
-        "error": error,
-    }
-    result = upsert_shot_status(data)
+    result = export_markdown(project_id)
     return json.dumps(result, ensure_ascii=False)
 
 
 @mcp.tool()
-def shot_list_pending(project_id: str) -> str:
-    """列出项目中所有待生成的镜头（status 不为 success）。
+def export_storyboard_csv(project_id: str) -> str:
+    """导出分镜 Prompt 表格（CSV 格式）。
     
-    返回未完成镜头列表，用于断点续传时跳过已成功的镜头。
+    从 script_breakdown.json 提取所有镜头的 Prompt，生成可批量复制的 CSV 表格。
+    适用于在 Gemini、可灵、剪映等平台批量操作。
+    
+    输出到 projects/{project_id}/exports/storyboard_prompts.csv
     """
-    all_result = list_shots_by_status(project_id)
-    if all_result["status"] != "success":
-        return json.dumps(all_result, ensure_ascii=False)
-    
-    pending = [s for s in all_result["shots"] if s["status"] != "success"]
-    return json.dumps({
-        "status": "success",
-        "pending_shots": pending,
-        "total": all_result["total"],
-        "completed": all_result["total"] - len(pending),
-        "pending": len(pending),
-        "summary": all_result.get("summary", {})
-    }, ensure_ascii=False, default=str)
-
-
-@mcp.tool()
-def shot_batch_init(project_id: str, shots_json: str) -> str:
-    """批量初始化镜头状态（从 script_breakdown.json 解析后调用）。
-    
-    Args:
-        project_id: 项目 ID
-        shots_json: JSON 字符串，镜头列表
-            [{"shot_id": "S1_Sc1_Shot1", "sub_script": "Sub-Script 1", "scene": "Scene 1", "shot": "Shot 1"}, ...]
-    """
-    shots = json.loads(shots_json) if isinstance(shots_json, str) else shots_json
-    result = batch_init_shots(project_id, shots)
+    result = export_csv(project_id)
     return json.dumps(result, ensure_ascii=False)
 
 

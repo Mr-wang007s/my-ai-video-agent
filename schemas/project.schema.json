@@ -29,22 +29,19 @@
         "draft",
         "imported",
         "characters_extracted",
-        "characters_designing",
+        "characters_designed",
         "script_broken",
-        "generating",
-        "generated",
-        "composing",
-        "completed"
+        "exported"
       ],
       "default": "draft",
-      "description": "项目当前阶段：draft（初始）→ imported（剧本已导入）→ characters_extracted（角色已提取）→ characters_designing（角色设计中）→ script_broken（分镜已拆解）→ generating（视频生成中）→ generated（视频已生成）→ composing（合成中）→ completed（完成）"
+      "description": "项目当前阶段：draft（初始）→ imported（剧本已导入）→ characters_extracted（角色已提取）→ characters_designed（角色已设计）→ script_broken（分镜已拆解）→ exported（已导出制作指南）"
     },
     "config": {
       "type": "object",
       "description": "项目配置",
       "properties": {
         "target_duration": { "type": "number", "description": "目标时长（秒）" },
-        "resolution": { "type": "string", "default": "1080p" },
+        "resolution": { "type": "string" },
         "fps": { "type": "integer", "default": 24 },
         "language": { "type": "string", "default": "zh-CN" }
       }
