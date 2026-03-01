@@ -11,7 +11,7 @@ description: "Step 2: 导入剧本 — 接收用户剧本 .txt 文件，自动�
 ## 必须加载的 Skill
 
 ```
-use_skill("manga-script")
+use_skill("script-parser")
 ```
 
 ## 执行步骤
@@ -22,40 +22,35 @@ use_skill("manga-script")
 
 2. **验证前置条件**：
    ```
-   MCP tool: project_get(project_id)
+   Read: projects/{project_id}/status.json
    ```
    确认项目存在且状态为 `draft`。
 
-3. **执行导入**：
+3. **导入剧本文件**：
    ```
-   MCP tool: script_import(project_id, script_path)
-   ```
-   自动完成：读取 .txt → 复制到 raw_script.txt → 输出统计
-
-4. **获取文本**：
-   ```
-   MCP tool: script_text(project_id, max_length=50000)
+   Read: {script_path}  ← 读取用户提供的 .txt 文件
+   Write: projects/{project_id}/raw_script.txt  ← 复制原始文本
    ```
 
-5. **提取摘要和角色**：基于 manga-script skill 知识，从文本中提取：
+4. **统计脚本信息**：计算字数、段落数、对白行数等基本统计。
+
+5. **提取摘要和角色**：基于 script-parser skill 知识，从文本中提取：
    - 故事摘要（MovieScript）
    - 角色列表（Character）
    - 角色关系（Relationships）
-   - 写入 `projects/{project_id}/script_synopsis.json`
+   ```
+   Write: projects/{project_id}/script_synopsis.json
+   ```
 
 6. **更新状态**：
    ```
-   MCP tool: project_update_status(project_id, status="imported")
+   Write: projects/{project_id}/status.json  ← {"status": "imported", "updated_at": "..."}
    ```
 
-7. **记录日志**：
-   ```
-   MCP tool: generation_log(project_id, stage="import", status="success")
-   ```
-
-8. **向用户展示结果**并提示下一步：`/extract-characters`
+7. **向用户展示结果**并提示下一步：`/extract-characters`
 
 ## 注意事项
 
 - 支持 UTF-8、GBK、GB2312 编码
 - 原始文本完整保存在 `raw_script.txt` 中
+- 所有数据通过文件系统读写，不依赖 MCP 或数据库

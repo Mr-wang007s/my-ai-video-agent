@@ -11,14 +11,36 @@ description: "Step 3a: 提取角色 — 从剧本自动提取所有角色信息�
 ## 必须加载的 Skill
 
 ```
-use_skill("manga-script")
+use_skill("script-parser")
+use_skill("character-design")
+use_skill("character-acting")
 ```
+
+## Team 调度
+
+本步骤使用 `character-acting` Team 进行角色深度分析：
+
+```
+TeamCreate: character-acting-{project_id}
+Spawn:
+  - casting-director (coordinator) — 协调角色分析任务
+  - personality-writer (specialist) — 角色性格、背景故事、行为模式分析
+  - voice-designer (specialist) — 配音风格、语气、情感映射设计
+  - character-reviewer (reviewer) — 角色一致性和完整性审核
+```
+
+**协作流程**：
+1. casting-director 读取 script_synopsis.json，将角色列表分发给专家
+2. personality-writer 和 voice-designer 并行处理每个角色
+3. character-reviewer 审核所有角色的完整性和一致性
+4. casting-director 合并结果，写入 characters.json
+5. TeamDelete 清理资源
 
 ## 执行步骤
 
 1. **验证前置条件**：
    ```
-   MCP tool: project_get(project_id)
+   Read: projects/{project_id}/status.json
    ```
    确认状态为 `imported`。
 
@@ -28,19 +50,20 @@ use_skill("manga-script")
    Read: projects/{project_id}/raw_script.txt
    ```
 
-3. **提取角色信息**：主对话直接执行（纯文本分析），对每个角色提取：
+3. **提取角色信息**：通过 character-acting Team 执行，对每个角色提取：
    - 名称、描述、外观描述、角色关系、配音设置、风格关键词
+   - 性格特征、行为模式（personality-writer）
+   - 声音特征、语气风格（voice-designer）
    - 所有角色 `design_status` 初始为 `extracted`
 
-4. **写入 characters.json** 并保存到数据库：
+4. **写入 characters.json**：
    ```
-   MCP tool: character_save(project_id, name, description, appearance, reference_images="[]", style_keywords="[]")
+   Write: projects/{project_id}/characters.json
    ```
-   对每个角色调用一次。同时写入 `projects/{project_id}/characters.json`。
 
 5. **更新状态**：
    ```
-   MCP tool: project_update_status(project_id, status="characters_extracted")
+   Write: projects/{project_id}/status.json  ← {"status": "characters_extracted", "updated_at": "..."}
    ```
 
 6. **向用户展示结果**并提示下一步：
@@ -51,3 +74,4 @@ use_skill("manga-script")
 
 - **不消耗图像 API**：纯文本分析
 - 外观描述不完整时标注"待用户补充"
+- 所有数据通过文件系统读写，不依赖 MCP 或数据库

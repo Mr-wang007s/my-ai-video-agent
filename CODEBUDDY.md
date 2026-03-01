@@ -14,32 +14,26 @@ python scripts/db_manager.py --action init_db
 ```
 Creates SQLite tables (projects, scripts, storyboards, characters, assets, generations) in `data.db`. Use `--data '{"force": true}'` to drop and recreate all tables.
 
-### Verify MCP Server
+### Verify Skills
 ```bash
-python -c "import scripts.mcp_server as ms; print('Tools:', len(ms.mcp._tool_manager._tools))"
+ls .codebuddy/skills/
 ```
-Should print "Tools: 15". The MCP server is the sole interface for all pipeline operations — never call Python scripts directly via bash.
-
-### Run MCP Server (stdio)
-```bash
-python scripts/mcp_server.py
-```
-Launches the `manga-agent` MCP server over stdio. Configuration is in `.codebuddy/mcp.json`.
+Should list 10 Skill directories: `script-parser`, `script-scene`, `character-design`, `character-acting`, `shot-director`, `shot-rhythm`, `prompt-image`, `prompt-video`, `prompt-audio`, `export-render`.
 
 ## Architecture
 
 ### Overview
 
-This is an AI manga drama (漫剧) automated production pipeline based on MovieAgent architecture. It converts novel/screenplay text into short-form video through a 7-step pipeline. The system uses a **Skills + Rules + MCP** architecture where the main AI conversation loads domain-specific Skills on demand and executes all operations through a unified MCP server — there are no sub-agents.
+This is an AI manga drama (漫剧) automated production pipeline based on MovieAgent architecture. It converts novel/screenplay text into short-form video through a 6-step pipeline. The system uses a **Skills + Rules + Agent Teams** architecture: the main AI conversation loads domain-specific Skills on demand, spawns Agent Teams for complex parallel/review tasks, and performs all data I/O through file system operations (Read/Write/Bash).
 
-### Pipeline Flow (7 Steps)
+### Pipeline Flow (6 Steps)
 
 ```
 /init-project → /import-script → /extract-characters → /design-characters
-→ /break-script → /generate-video → /compose-final
+→ /break-script → /export-guide
 ```
 
-State machine: `draft → imported → characters_extracted → characters_designing → script_broken → generating → generated → composing → completed`. Each step validates the current state before proceeding, and updates it via `project_update_status` MCP tool upon completion.
+State machine: `draft → imported → characters_extracted → characters_designed → script_broken → exported`. Each step validates the current state before proceeding, and updates it via `Write: projects/{id}/status.json` upon completion.
 
 ### Core Data Flow — File-Based Routing
 
@@ -49,8 +43,7 @@ All pipeline artifacts live under `projects/{project_id}/`. Steps communicate ex
 - **Step 3a** produces `characters.json` (all characters with appearance descriptions, design status)
 - **Step 3b** produces `character_list/{CharName}/` asset directories (best.png, best.txt, multi-angle photos)
 - **Step 4** produces `script_breakdown.json` — the **central artifact** — a three-layer nested JSON (Sub-Script → Scene → Shot)
-- **Step 5** produces `images/shots/`, `videos/`, `video_manifest.json`
-- **Step 6** produces `final/` with the composed video
+- **Step 5** produces `exports/` with production guide (Markdown), cost estimate, and per-shot instruction sheets
 
 Project IDs use format `YYYYMMDD_HHMMSS_别名` (e.g., `20260228_080847_冰雪奇缘2漫剧版`).
 
@@ -64,39 +57,53 @@ Step 4 implements MovieAgent's key innovation: three independent Chain-of-Though
 
 Each layer uses independent context (`use_history=False`) — no accumulated conversation history between calls. The `cot-reasoning` rule enforces that CoT fields are never empty or skipped.
 
-### MCP Server (`scripts/mcp_server.py`)
+### Skills + Rules + Agent Teams Dispatch System
 
-Single unified MCP server exposing 15 tools across 5 categories. This is the **only** interface for all operations — bash calls to Python scripts are forbidden by the `pipeline-dispatch` rule.
+The `pipeline-dispatch` rule (alwaysApply) maps each pipeline step to required Skills and Agent Teams.
 
-| Category | Tools |
-|----------|-------|
-| Project | `project_init_db`, `project_create`, `project_list`, `project_get`, `project_update_status`, `project_summary` |
-| Script | `script_import`, `script_stats`, `script_text` |
-| Character | `character_save`, `character_list` |
-| Asset | `asset_save`, `asset_list` |
-| Logging | `generation_log` |
-| Export | `export_storyboard_markdown` |
+**10 Skills** organized in 5 modules (loaded via `use_skill()` before executing a step):
 
-The server imports from 3 Python modules in `scripts/`: `db_manager`, `import_script`, `export_storyboard`. All modules output `{"status": "success/failed", ...}` JSON.
+| Module | Skill | Team | Description |
+|--------|-------|------|-------------|
+| Script | `script-parser` | — | Screenplay parsing, synopsis extraction, Layer 1 screenwriterCoT |
+| | `script-scene` | Team A (parallel) | Layer 2 ScenePlanningCoT, lighting/color/transition design |
+| Character | `character-design` | — | `<TOK>` format, Visual ID Card, wardrobe system, reference image generation |
+| | `character-acting` | Team C (specialization) | Personality, expression/body language vocabulary, voice design |
+| Shot | `shot-director` | Team B (multi-modal) | Layer 3 ShotPlotCreateCoT, 18 shot types, 20+ camera movements |
+| | `shot-rhythm` | — | Duration formula, genre rhythm templates, emotion curves |
+| Prompt | `prompt-image` | Team D (review) | image_prompt construction, style prefixes, platform adaptation |
+| | `prompt-video` | Team E (review) | video_prompt + @Image references, dynamic vocabulary |
+| | `prompt-audio` | — | audio_prompt construction, environment sounds, BGM matrix |
+| Export | `export-render` | Team F (review) | Three-auditor quality gate, cost estimation, production guide |
 
-### Skills + Rules Dispatch System
+**6 Agent Teams** spawn when Skills define `team.enabled: true`. 4 coordination patterns:
+- **parallel**: Same task distributed to N workers (Layer 2 per-SubScript)
+- **specialization**: Different experts handle different aspects (character acting)
+- **review**: Generate→review chain (prompt quality gates)
+- **multi-modal**: Image/video/audio specialists work in parallel (Layer 3)
 
-The `pipeline-dispatch` rule (alwaysApply) maps each pipeline step to required Skills and MCP tools:
+Team lifecycle: `use_skill()` → read team config → `TeamCreate` → spawn teammates → `TaskList` coordination → shutdown → `TeamDelete` → update status.
 
-**6 Skills** (loaded via `use_skill()` before executing a step):
-- `manga-script` — screenplay parsing, synopsis extraction, character identification
-- `character-consistency` — `<TOK>` description format, character_list directory structure, Seedance @Image reference strategy
-- `script-breakdown` — three-layer CoT prompt templates (Layer 1/2/3 system prompts)
-- `storyboard-design` — shot types, camera movements, triple-prompt generation specs, duration alignment (4/5/10/15s)
-- `seedance-video` — Seedance 2.0 API modes (t2v/i2v/multimodal), prompt optimization, audio-video joint generation
-- `voice-synthesis` — TTS voice selection, emotion-speech mapping, audio replacement
+**Step → Skill → Team Mapping:**
 
-**5 Rules** (in `.codebuddy/rules/`, auto-applied):
-- `pipeline-dispatch` — step→skill→MCP mapping, state machine, dispatch principles
+| Step | Command | Skills | Team |
+|------|---------|--------|------|
+| 1 | `/init-project` | — | — |
+| 2 | `/import-script` | `script-parser` | — |
+| 3a | `/extract-characters` | `script-parser` + `character-design` + `character-acting` | character-acting Team C |
+| 3b | `/design-characters` | `character-design` | — |
+| 4a | `/break-script` (L1) | `script-parser` | — |
+| 4b | `/break-script` (L2) | `script-scene` + `shot-rhythm` | script-scene Team A |
+| 4c | `/break-script` (L3) | `shot-director` + `prompt-image` + `prompt-video` + `prompt-audio` + `shot-rhythm` | shot-director Team B |
+| 5 | `/export-guide` | `export-render` | export-render Team F |
+
+**6 Rules** (in `.codebuddy/rules/`, auto-applied):
+- `pipeline-dispatch` — step→skill→team mapping, state machine, dispatch principles
 - `cot-reasoning` — mandatory CoT fields per layer, independent context enforcement
 - `api-usage` — env var management, cost control (Seedance 50/day), exponential backoff retry
 - `character-consistency` — asset directory validation, `<TOK>` format, image_prompt must not contain character names
 - `narrative-rhythm` — duration alignment to Seedance tiers, transition rules (cut/fade/blackout)
+- `quality-standards` — CoT completeness, prompt specs, three-layer JSON validation
 
 ### `script_breakdown.json` Schema
 
@@ -108,7 +115,7 @@ Seedance 2.0's multimodal mode accepts `@Image{N}` references in prompts. The pa
 
 ### SQLite Database (`data.db`)
 
-Schema in `scripts/init_db.sql`. Six tables: `projects` (status-driven state machine), `scripts`, `storyboards`, `characters` (per-project), `assets` (image/video/audio with metadata), `generations` (audit log for all API calls with cost tracking). All DB access goes through `db_manager.py` → MCP tools.
+Schema in `scripts/init_db.sql`. Six tables: `projects` (status-driven state machine), `scripts`, `storyboards`, `characters` (per-project), `assets` (image/video/audio with metadata), `generations` (audit log for all API calls with cost tracking). Database is optional — the pipeline uses file-based routing (`projects/{id}/*.json`) as primary data store. Legacy MCP server (`scripts/mcp_server.py`) and `db_manager.py` are retained for reference but not used by Skills or Commands.
 
 ### Environment Variables
 
@@ -118,4 +125,4 @@ Required in `.env` (loaded by `python-dotenv`):
 - `VOLC_TTS_APP_ID` / `VOLC_TTS_TOKEN` — Volcano TTS (optional, for voice override)
 - `SD_API_URL` — Local Stable Diffusion (optional alternative to DALL-E)
 
-Steps 1–3a require no API keys (pure LLM reasoning + local DB).
+Steps 1–4 require no API keys (pure LLM reasoning + file I/O). API keys are only needed for actual image/video generation (post-export manual operations).

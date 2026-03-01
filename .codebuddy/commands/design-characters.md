@@ -11,7 +11,7 @@ description: "Step 3b: 角色设计 — 构建 <TOK> 描述，创建 character_l
 ## 必须加载的 Skill
 
 ```
-use_skill("character-consistency")
+use_skill("character-design")
 ```
 
 ## 三种调用方式
@@ -31,24 +31,28 @@ use_skill("character-consistency")
 ```
 
 **执行**：
-1. 验证前置条件
+1. 验证前置条件：
+   ```
+   Read: projects/{project_id}/status.json
+   ```
 2. 读取 `characters.json`，找到目标角色
-3. 构建 `<TOK>` 英文外观描述（遵循 character-consistency skill 规范）
+3. 构建 `<TOK>` 英文外观描述（遵循 character-design skill 规范）
 4. 创建 `character_list/{CharName}/` 目录
-5. 写入 `best.txt`（`<TOK>` 开头的英文描述）
+5. 写入 `best.txt`（`<TOK>` 开头的英文描述）：
+   ```
+   Write: projects/{project_id}/character_list/{CharName}/best.txt
+   ```
 6. 生成用于 Gemini 的 Prompt，供用户手动生成 best.png：
    - 输出完整的英文 Prompt（含风格前缀和 negative prompt）
    - 建议用户在 Gemini 生成后，将最佳图片保存为 `best.png`
    - 建议额外生成 3-5 张多角度参考图（photo_1.png ~ photo_5.png）
-7. 更新数据库：
+7. 更新 `characters.json` 中的 `design_status` → `designed`：
    ```
-   MCP tool: character_save(project_id, name, description, appearance, reference_images, style_keywords)
-   MCP tool: generation_log(project_id, stage="design", status="success")
+   Write: projects/{project_id}/characters.json  ← 更新 design_status、tok_description、asset_dir
    ```
-8. 更新 `characters.json` 中的 `design_status` → `designed`
-9. 更新项目状态：
+8. 更新项目状态：
    ```
-   MCP tool: project_update_status(project_id, status="characters_designed")
+   Write: projects/{project_id}/status.json  ← {"status": "characters_designed", "updated_at": "..."}
    ```
 
 ### 方式 3: 批量设计 — all
@@ -69,3 +73,4 @@ use_skill("character-consistency")
 - 角色设计为纯文本操作，不调用任何 API
 - 用户需自行在 Gemini 等平台生成参考图并放入 `character_list/{CharName}/` 目录
 - `best.png` 是可选的，但对后续分镜拆解中的角色描述一致性有帮助
+- 所有数据通过文件系统读写，不依赖 MCP 或数据库
