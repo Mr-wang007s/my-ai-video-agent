@@ -18,7 +18,7 @@ Creates SQLite tables (projects, scripts, storyboards, characters, assets, gener
 ```bash
 python -c "import scripts.mcp_server as ms; print('Tools:', len(ms.mcp._tool_manager._tools))"
 ```
-Should print "Tools: 18". The MCP server is the sole interface for all pipeline operations — never call Python scripts directly via bash.
+Should print "Tools: 15". The MCP server is the sole interface for all pipeline operations — never call Python scripts directly via bash.
 
 ### Run MCP Server (stdio)
 ```bash
@@ -66,7 +66,7 @@ Each layer uses independent context (`use_history=False`) — no accumulated con
 
 ### MCP Server (`scripts/mcp_server.py`)
 
-Single unified MCP server exposing 18 tools across 6 categories. This is the **only** interface for all operations — bash calls to Python scripts are forbidden by the `pipeline-dispatch` rule.
+Single unified MCP server exposing 15 tools across 5 categories. This is the **only** interface for all operations — bash calls to Python scripts are forbidden by the `pipeline-dispatch` rule.
 
 | Category | Tools |
 |----------|-------|
@@ -75,9 +75,9 @@ Single unified MCP server exposing 18 tools across 6 categories. This is the **o
 | Character | `character_save`, `character_list` |
 | Asset | `asset_save`, `asset_list` |
 | Logging | `generation_log` |
-| Generation | `image_generate` (DALL-E/SD), `video_generate` (Seedance 2.0), `speech_generate` (Volcano/Azure TTS), `video_compose` (FFmpeg) |
+| Export | `export_storyboard_markdown` |
 
-The server imports from 6 Python modules in `scripts/`: `db_manager`, `import_script`, `image_generate`, `seedance_generate`, `tts_generate`, `video_compose`. All modules output `{"status": "success/failed", ...}` JSON.
+The server imports from 3 Python modules in `scripts/`: `db_manager`, `import_script`, `export_storyboard`. All modules output `{"status": "success/failed", ...}` JSON.
 
 ### Skills + Rules Dispatch System
 

@@ -21,7 +21,7 @@ alwaysApply: true
 | Step 3a: 提取角色 | extract-characters, 提取角色 | `manga-script` | `character_save`, `project_update_status` |
 | Step 3b: 设计角色 | design-characters, 设计角色 | `character-consistency` | `character_save`, `project_update_status` |
 | Step 4: 分镜拆解 | break-script, 分镜 | `script-breakdown` + `storyboard-design` | `project_update_status`, `generation_log` |
-| Step 5: 导出指南 | export-guide, 导出 | — | `export_storyboard_markdown`, `export_storyboard_csv`, `project_update_status` |
+| Step 5: 导出指南 | export-guide, 导出 | — | `export_storyboard_markdown`, `project_update_status` |
 
 ## 调度原则
 

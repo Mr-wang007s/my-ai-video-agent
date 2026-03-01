@@ -30,7 +30,7 @@ from db_manager import (
     get_project_summary, get_connection,
 )
 from import_script import import_script, get_stats, get_text
-from export_storyboard import export_markdown, export_csv
+from export_storyboard import export_markdown
 
 # ─── 创建 MCP Server ───────────────────────────────────────────
 mcp = FastMCP("manga-agent")
@@ -268,18 +268,6 @@ def export_storyboard_markdown(project_id: str) -> str:
     result = export_markdown(project_id)
     return json.dumps(result, ensure_ascii=False)
 
-
-@mcp.tool()
-def export_storyboard_csv(project_id: str) -> str:
-    """导出分镜 Prompt 表格（CSV 格式）。
-    
-    从 script_breakdown.json 提取所有镜头的 Prompt，生成可批量复制的 CSV 表格。
-    适用于在 Gemini、可灵、剪映等平台批量操作。
-    
-    输出到 projects/{project_id}/exports/storyboard_prompts.csv
-    """
-    result = export_csv(project_id)
-    return json.dumps(result, ensure_ascii=False)
 
 
 # ─── 启动入口 ──────────────────────────────────────────────────
