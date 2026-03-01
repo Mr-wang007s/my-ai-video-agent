@@ -6,11 +6,11 @@ data.db
 data.db-shm
 data.db-wal
 
+# 项目产出数据（运行时生成，不入库）
+projects/
+
 # 生成的资产（大文件）
 assets/outputs/
-projects/*/images/
-projects/*/videos/
-projects/*/audio/
 
 # Python
 __pycache__/
