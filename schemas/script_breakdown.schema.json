@@ -25,6 +25,15 @@
         "Step 5: Division Rationale": { "type": "string" }
       }
     },
+    "Character Arc Blueprint": {
+      "type": "object",
+      "description": "角色弧线蓝图。每个主要角色在各 Sub-Script 中的情绪状态和叙事功能映射。每个主角至少3个情绪状态节点。",
+      "additionalProperties": {
+        "type": "object",
+        "description": "角色名→{Sub-Script N: 情绪状态描述}",
+        "additionalProperties": { "type": "string" }
+      }
+    },
     "Sub-Script": {
       "type": "object",
       "description": "Sub-Script 层（≤20个章节/幕），键为 'Sub-Script N'",
@@ -151,8 +160,8 @@
                               },
                               "Shot Type": {
                                 "type": "string",
-                                "enum": ["Wide shot", "Medium shot", "Close-up", "Extreme close-up", "Over-shoulder shot", "POV shot", "Bird-eye view", "Low-angle shot", "Dutch angle"],
-                                "description": "镜头类型"
+                                "enum": ["Extreme wide", "Wide shot", "Medium wide", "Medium shot", "Medium close-up", "Close-up", "Extreme close-up", "Over-shoulder", "POV", "High angle", "Low angle", "Dutch angle", "Two-shot", "Group shot", "Insert", "Cutaway", "Mirror shot", "Silhouette"],
+                                "description": "镜头类型（18种扩展类型）"
                               },
                               "Camera Movement": {
                                 "type": "string",

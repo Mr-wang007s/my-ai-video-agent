@@ -70,6 +70,24 @@ draft → imported → characters_extracted → characters_designed → script_b
 
 每个状态转换由对应步骤的 Coordinator（或单 agent）在完成时写入 `projects/{id}/status.json`。
 
+### 状态验证前置条件
+
+每个步骤执行前**必须**校验项目当前状态，防止跳步或重复执行：
+
+| 步骤 | 要求的当前状态 | 目标状态 | 前置文件校验 |
+|------|-------------|---------|------------|
+| Step 1: /init-project | （无项目） | `draft` | — |
+| Step 2: /import-script | `draft` | `imported` | `projects/{id}/` 目录存在 |
+| Step 3a: /extract-characters | `imported` | `characters_extracted` | `raw_script.txt` + `script_synopsis.json` 存在 |
+| Step 3b: /design-characters | `characters_extracted` | `characters_designed` | `characters.json` 存在且含 ≥ 1 个角色 |
+| Step 4: /break-script | `characters_designed` | `script_broken` | `characters.json` 中所有主角 `design_status == "designed"`，`character_list/` 中有对应 `best.txt` |
+| Step 5: /export-guide | `script_broken` | `exported` | `script_breakdown.json` 存在且三层结构完整 |
+
+**校验失败处理**：
+- 状态不匹配 → 报告当前状态，建议先执行前置步骤
+- 前置文件缺失 → 报告缺失的文件，建议重新执行产生该文件的步骤
+- **禁止**跳过中间步骤直接执行后续步骤
+
 ## 手动操作指引（导出后）
 
 导出的制作指南文件用于以下手动操作：

@@ -68,7 +68,7 @@ team:
   coordination:
     merge_strategy: coordinator-merge
     review_required: true
-    max_parallel: 2
+    max_parallel: 3
 ---
 
 # 角色表演指导 (Character Acting)
@@ -473,7 +473,7 @@ casting-director（协调者）
 
 1. **casting-director** 读取 `characters.json` 和 `raw_script.txt`/`script_synopsis.json`
 2. **casting-director** 为每个角色创建 Task，分配给 personality-writer 和 voice-designer
-3. **personality-writer** 并行处理（max_parallel=2 个角色同时）：
+3. **personality-writer** 并行处理（max_parallel=3 个角色同时）：
    - 构建性格档案（MBTI、情感反应模式、关系动态）
    - 从词汇表选择角色专属的表情和肢体语言集
    - 输出 Character Arc Blueprint

@@ -57,6 +57,90 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "风格关键词（用于 Prompt 构建）"
+        },
+        "name_en": {
+          "type": "string",
+          "description": "角色英文名（用于 character_list/ 目录命名）"
+        },
+        "personality": {
+          "type": "object",
+          "description": "性格档案（MBTI、核心特质、缺陷、价值观）",
+          "properties": {
+            "mbti": { "type": "string" },
+            "core_traits": { "type": "array", "items": { "type": "string" } },
+            "flaws": { "type": "array", "items": { "type": "string" } },
+            "values": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ]
+            }
+          }
+        },
+        "speaking_style": {
+          "type": "object",
+          "description": "说话风格",
+          "properties": {
+            "vocabulary_level": { "type": "string" },
+            "speech_patterns": { "type": "array", "items": { "type": "string" } },
+            "catchphrases": { "type": "array", "items": { "type": "string" } },
+            "speech_speed": { "type": "string" },
+            "pause_habit": { "type": "string" }
+          }
+        },
+        "emotional_reactions": {
+          "type": "object",
+          "description": "情感反应模式",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "properties": {
+                  "expression": { "type": "string" },
+                  "body_language": { "type": "string" }
+                }
+              }
+            ]
+          }
+        },
+        "character_arc": {
+          "type": "object",
+          "description": "角色弧线",
+          "properties": {
+            "starting_state": { "type": "string" },
+            "turning_point": { "type": "string" },
+            "ending_state": { "type": "string" }
+          }
+        },
+        "signature_pose": {
+          "type": "string",
+          "description": "标志性姿态描述（英文）"
+        },
+        "signature_expression": {
+          "type": "string",
+          "description": "标志性表情描述（英文）"
+        },
+        "body_proportions": {
+          "type": "string",
+          "description": "身体比例描述（英文）"
+        },
+        "wardrobe": {
+          "type": "object",
+          "description": "服装系统",
+          "properties": {
+            "default": { "type": "string" }
+          },
+          "additionalProperties": { "type": "string" }
+        },
+        "visual_identifiers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "视觉识别标志列表"
+        },
+        "distinguishing_features": {
+          "type": "string",
+          "description": "角色最显著的辨识特征综述"
         }
       }
     },

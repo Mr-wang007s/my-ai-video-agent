@@ -3,6 +3,9 @@ name: prompt-audio
 description: "音频提示词设计。audio_prompt 构造公式、环境音分层、对白表演指导、BGM 选择矩阵、音色映射。涵盖 Step 4c 的 audio_prompt 生成和 Step 5 的配音指南导出。"
 team:
   enabled: false
+  # Note: This Skill does not spawn its own team. However, its domain knowledge
+  # is used by the audio-prompter specialist within the shot-director Team (Step 4c).
+  # The false setting means no independent team, not that it's unused in team contexts.
 ---
 
 # 音频提示词设计（prompt-audio）

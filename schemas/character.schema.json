@@ -1,93 +1,155 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MangaCharacter",
-  "description": "AI 漫剧角色数据结构",
+  "description": "AI 漫剧角色数据结构（匹配 character-design + character-acting Skill 输出）",
   "type": "object",
-  "required": ["id", "project_id", "name"],
+  "required": ["name", "description", "appearance_description", "design_status"],
   "properties": {
-    "id": {
-      "type": "string",
-      "description": "角色唯一标识（如 char_liming）"
-    },
-    "project_id": {
-      "type": "string",
-      "description": "所属项目 ID"
-    },
     "name": {
       "type": "string",
-      "description": "角色名称"
+      "description": "角色名称（中文）"
+    },
+    "name_en": {
+      "type": "string",
+      "description": "角色英文名（用于 character_list/ 目录命名）"
     },
     "description": {
       "type": "string",
-      "description": "角色简介（性格、背景）"
+      "description": "角色简介（性格、背景、在故事中的作用）"
     },
-    "appearance": {
+    "appearance_description": {
+      "type": "string",
+      "description": "外观描述（中文，详细描述发型、服装、体型、显著特征）"
+    },
+    "tok_description": {
+      "type": "string",
+      "description": "<TOK> 格式的英文外观描述，用于图像生成。以 '<TOK>' 开头"
+    },
+    "relationships": {
       "type": "object",
-      "description": "外观描述",
-      "properties": {
-        "gender": { "type": "string", "enum": ["male", "female", "other"] },
-        "age_range": { "type": "string", "description": "年龄段（如 20-25）" },
-        "hair": { "type": "string", "description": "发型和发色" },
-        "eyes": { "type": "string", "description": "眼睛特征" },
-        "build": { "type": "string", "description": "体型" },
-        "clothing": { "type": "string", "description": "服装描述" },
-        "distinguishing_features": { "type": "string", "description": "显著特征" }
-      }
+      "description": "与其他角色的关系（key=角色名, value=关系描述）",
+      "additionalProperties": { "type": "string" }
     },
     "style_keywords": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "风格关键词（用于 Prompt 复用）"
+      "description": "风格关键词（用于 Prompt 构建）"
     },
-    "reference_images": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "参考图路径列表"
+    "personality": {
+      "type": "object",
+      "description": "性格档案（来自 character-acting Skill）",
+      "properties": {
+        "mbti": { "type": "string", "description": "MBTI 类型" },
+        "core_traits": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "核心性格特质"
+        },
+        "flaws": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "性格缺陷"
+        },
+        "values": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ],
+          "description": "核心价值观"
+        }
+      }
+    },
+    "speaking_style": {
+      "type": "object",
+      "description": "说话风格",
+      "properties": {
+        "vocabulary_level": { "type": "string", "description": "用词习惯" },
+        "speech_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "语言模式特征"
+        },
+        "catchphrases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "口头禅"
+        },
+        "speech_speed": { "type": "string", "description": "语速特征" },
+        "pause_habit": { "type": "string", "description": "停顿习惯" }
+      }
+    },
+    "emotional_reactions": {
+      "type": "object",
+      "description": "情感反应模式（至少包含 stress/joy/anger/fear/sadness）",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "properties": {
+              "expression": { "type": "string", "description": "面部表情描述" },
+              "body_language": { "type": "string", "description": "肢体语言描述" }
+            }
+          }
+        ]
+      }
     },
     "voice": {
       "type": "object",
       "description": "配音设置",
       "properties": {
         "voice_type": { "type": "string", "description": "音色类型" },
-        "speed": { "type": "number", "default": 1.0 },
-        "emotion_default": { "type": "string", "default": "neutral" }
+        "speed": { "type": "number", "default": 1.0, "description": "默认语速倍率" },
+        "emotion_default": { "type": "string", "description": "默认情绪基调" },
+        "signature_quality": { "type": "string", "description": "标志性音质特征" }
       }
     },
-    "prompt_template": {
+    "character_arc": {
+      "type": "object",
+      "description": "角色弧线",
+      "properties": {
+        "starting_state": { "type": "string", "description": "初始状态" },
+        "turning_point": { "type": "string", "description": "转折点" },
+        "ending_state": { "type": "string", "description": "结局状态" }
+      }
+    },
+    "design_status": {
       "type": "string",
-      "description": "角色在分镜 Prompt 中的固定描述片段，确保一致性"
-    }
-  },
-  "examples": [
-    {
-      "id": "char_liming",
-      "project_id": "proj001",
-      "name": "李明",
-      "description": "26 岁的普通上班族，性格内向但心地善良，意外获得修仙传承后开始了双面生活",
-      "appearance": {
-        "gender": "male",
-        "age_range": "25-28",
-        "hair": "short black hair, slightly messy",
-        "eyes": "dark brown eyes, gentle gaze",
-        "build": "average build, slightly thin",
-        "clothing": "white dress shirt, loosened tie, dark trousers",
-        "distinguishing_features": "wears thin-framed glasses, slight dark circles under eyes"
+      "enum": ["extracted", "designing", "designed", "failed"],
+      "description": "设计状态"
+    },
+    "asset_dir": {
+      "type": "string",
+      "description": "角色资产目录相对路径（如 character_list/LinXi/）"
+    },
+    "signature_pose": {
+      "type": "string",
+      "description": "标志性姿态描述（英文）"
+    },
+    "signature_expression": {
+      "type": "string",
+      "description": "标志性表情描述（英文）"
+    },
+    "body_proportions": {
+      "type": "string",
+      "description": "身体比例描述（英文）"
+    },
+    "wardrobe": {
+      "type": "object",
+      "description": "服装系统（key=场景/状态, value=服装描述）",
+      "properties": {
+        "default": { "type": "string", "description": "默认服装" }
       },
-      "style_keywords": [
-        "manga style",
-        "young man",
-        "office worker",
-        "black short hair",
-        "glasses",
-        "gentle expression"
-      ],
-      "reference_images": [],
-      "voice": {
-        "voice_type": "young_male",
-        "speed": 1.0,
-        "emotion_default": "neutral"
-      },
-      "prompt_template": "a young man with short messy black hair, thin-framed glasses, wearing a white dress shirt with loosened tie, gentle expression, manga style"
+      "additionalProperties": { "type": "string" }
+    },
+    "visual_identifiers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "视觉识别标志列表（用于跨镜头一致性）"
+    },
+    "distinguishing_features": {
+      "type": "string",
+      "description": "角色最显著的辨识特征综述"
     }
-  ]
+  }
 }
